@@ -1,4 +1,4 @@
-package main
+package uploadfile
 
 import (
 	"net/http"
@@ -6,14 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func main() {
-	//greeting.Say("Hello World")
-	//goroutine.Goroutine()
-	//deferexample.Deferexample()
-	//mapstruct.MapStruct()
-	//receiverex.Receiver()
-	//goflags.Goflags()
-	//uploadfile.Uploadfile(w http.ResponseWriter, r *http.Request)
+func Uploadfile(w http.ResponseWriter, r *http.Request) {
 	router := gin.Default()
 
 	router.POST("/upload", func(c *gin.Context) {
