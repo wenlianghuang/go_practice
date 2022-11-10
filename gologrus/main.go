@@ -23,7 +23,7 @@ func main() {
 		panic(err)
 	}
 	defer f.Close()
-
+	fmt.Println("Test")
 	/*
 		log := &logrus.Logger{
 			// Log into f file handler and on os.Stdout
