@@ -1,0 +1,56 @@
+2023/04/18 17:40:16 This is a log message
+2023/04/18 17:44:09.772935 D:/go_practice/writeLogfile/main.go:18: This is a log message
+2023/04/18 18:01:01 Starting application...
+2023/04/18 18:01:02 Panic occured: Unexpected error: Something went wrong!
+2023/04/18 18:01:02 goroutine 1 [running]:
+runtime/debug.Stack()
+	C:/Program Files/Go/src/runtime/debug/stack.go:24 +0x65
+main.main.func1()
+	D:/go_practice/writeLogfile/main.go:22 +0x7e
+panic({0xcb1fe0, 0xc000068260})
+	C:/Program Files/Go/src/runtime/panic.go:884 +0x212
+main.someFunction.func1()
+	D:/go_practice/writeLogfile/main.go:36 +0x74
+panic({0xcb1fe0, 0xce85e0})
+	C:/Program Files/Go/src/runtime/panic.go:884 +0x212
+main.someFunction()
+	D:/go_practice/writeLogfile/main.go:40 +0x52
+main.main()
+	D:/go_practice/writeLogfile/main.go:27 +0x19a
+
+2023/04/18 18:01:57 Starting application...
+2023/04/18 18:01:57 Panic occurred: Unexpected error: Something went wrong!
+2023/04/18 18:01:57 goroutine 1 [running]:
+runtime/debug.Stack()
+	C:/Program Files/Go/src/runtime/debug/stack.go:24 +0x65
+main.main.func1()
+	D:/go_practice/writeLogfile/main.go:22 +0x7e
+panic({0x421fe0, 0xc000068260})
+	C:/Program Files/Go/src/runtime/panic.go:884 +0x212
+main.someFunction.func1()
+	D:/go_practice/writeLogfile/main.go:35 +0x74
+panic({0x421fe0, 0x4585e0})
+	C:/Program Files/Go/src/runtime/panic.go:884 +0x212
+main.someFunction()
+	D:/go_practice/writeLogfile/main.go:40 +0x52
+main.main()
+	D:/go_practice/writeLogfile/main.go:27 +0x19a
+
+2023/04/18 18:25:37 Starting application...
+2023/04/18 18:25:37 Panic occurred: Unexpected error: 1
+2023/04/18 18:25:37 goroutine 1 [running]:
+runtime/debug.Stack()
+	C:/Program Files/Go/src/runtime/debug/stack.go:24 +0x65
+main.main.func1()
+	D:/go_practice/writeLogfile/main.go:22 +0x7e
+panic({0x8a1fe0, 0xc000088230})
+	C:/Program Files/Go/src/runtime/panic.go:884 +0x212
+main.someFunction.func1()
+	D:/go_practice/writeLogfile/main.go:35 +0x74
+panic({0x8a18e0, 0x8d84e0})
+	C:/Program Files/Go/src/runtime/panic.go:884 +0x212
+main.someFunction()
+	D:/go_practice/writeLogfile/main.go:41 +0x52
+main.main()
+	D:/go_practice/writeLogfile/main.go:27 +0x19a
+
