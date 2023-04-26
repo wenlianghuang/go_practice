@@ -8,8 +8,9 @@ import (
 )
 
 func main() {
-	//http.HandleFunc("/download", downloadHandler)
-	http.HandleFunc("/download", downloadHandlerV2)
+	// 20230423 Use `curl http://localhost:8080/download --output YourNametoDownload.pdf`
+	http.HandleFunc("/download", downloadHandler)
+	//http.HandleFunc("/download", downloadHandlerV2)
 	fmt.Println("Starting server...")
 	if err := http.ListenAndServe(":8080", nil); err != nil {
 		fmt.Println("Error starting server: ", err)
@@ -32,8 +33,8 @@ func downloadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	filePath := "D:\\go_practice\\httpPOSTDownloadder\\"
-	fileName := "D:\\go_practice\\httpPOSTDownloadder\\Attention_is_all_You_Need.pdf"
+	filePath := "D:\\go_practice\\httpPOSTDownloader\\"
+	fileName := "D:\\go_practice\\httpPOSTDownloader\\Attention_is_all_You_Need.txt"
 
 	file, err := os.Open(filePath)
 	if err != nil {

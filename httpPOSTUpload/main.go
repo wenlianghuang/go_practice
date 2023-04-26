@@ -10,49 +10,45 @@ import (
 	"os"
 )
 
+// The connected folder is "httpPOSTUpload"
 func main() {
-	file, err := os.Open("example.txt")
+	// 開啟檔案控制代碼
+	file, err := os.Open("./example.json")
 	if err != nil {
 		panic(err)
 	}
 	defer file.Close()
 
+	// 建立 multipart/form-data 的請求
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
-
-	part, err := writer.CreateFormFile("file", "example.txt")
+	part, err := writer.CreateFormFile("AAAA", "example.json")
 	if err != nil {
 		panic(err)
 	}
+	io.Copy(part, file)
+	writer.Close()
 
-	_, err = io.Copy(part, file)
+	// 建立 POST 請求
+	req, err := http.NewRequest("POST", "http://localhost:9090/upload", body)
 	if err != nil {
 		panic(err)
 	}
-
-	err = writer.Close()
-	if err != nil {
-		panic(err)
-	}
-
-	req, err := http.NewRequest("POST", "http://asgard-UAT.acer.com/MattTest", body)
-	if err != nil {
-		panic(err)
-	}
-
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
+	// 發送請求
 	client := &http.Client{}
-	res, err := client.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		panic(err)
 	}
-	defer res.Body.Close()
+	defer resp.Body.Close()
 
-	resBody, err := ioutil.ReadAll(res.Body)
+	// 讀取回應
+	respBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		panic(err)
 	}
-
-	fmt.Println(string(resBody))
+	fmt.Println(resp.Status)
+	fmt.Println(string(respBody))
 }
