@@ -14,7 +14,8 @@ func main() {
 	// 設置路由
 	r.POST("/upload", func(c *gin.Context) {
 		// 從請求中讀取檔案
-		file, err := c.FormFile("localfile")
+		// Receive file "fileName" name from POST
+		file, err := c.FormFile("fileName")
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"error": err.Error(),

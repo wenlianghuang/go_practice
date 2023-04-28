@@ -22,7 +22,8 @@ func main() {
 	// 建立 multipart/form-data 的請求
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
-	part, err := writer.CreateFormFile("AAAA", "example.json")
+	//POST file name "fileName, like the <input name="fileName" /> from html"
+	part, err := writer.CreateFormFile("fileName", "example.json")
 	if err != nil {
 		panic(err)
 	}
@@ -30,7 +31,10 @@ func main() {
 	writer.Close()
 
 	// 建立 POST 請求
-	req, err := http.NewRequest("POST", "http://localhost:9090/upload", body)
+	// 20230428 This is for local "httpPOSTMain"
+	//req, err := http.NewRequest("POST", "http://localhost:9090/upload", body)
+	// 20230428 This is for remote "Uranos"
+	req, err := http.NewRequest("POST", "https://uranos.acer.com/Uranos/testpy/upload.php", body)
 	if err != nil {
 		panic(err)
 	}
