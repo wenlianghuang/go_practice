@@ -2,6 +2,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	sublogrus "gologrus/Sublogrus"
 	"os"
@@ -9,13 +10,24 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+var (
+	intflag    int
+	boolflag   bool
+	stringflag string
+)
+
 func init() {
 	logrus.SetFormatter(&logrus.TextFormatter{})
 	logrus.SetOutput(os.Stdout)
 	logrus.SetLevel(logrus.DebugLevel)
+
+	flag.IntVar(&intflag, "intflag", 0, "int flag value")
+	flag.BoolVar(&boolflag, "boolflag", true, "bool flag value")
+	flag.StringVar(&stringflag, "stringflag", "Yes", "string flag value")
 }
 func main() {
-
+	//-h for --help
+	flag.Parse()
 	//f, err := os.OpenFile("log.txt", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
 	f, err := os.OpenFile("log.txt", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
 	if err != nil {
@@ -36,10 +48,11 @@ func main() {
 			},
 		}
 	*/
+	//xxxxf => %s variable
 	log := sublogrus.Sublogrusfunc()
-	log.Trace("Trace message")
-	log.Info("Info message")
-	log.Warn("Warn message")
+	log.Tracef("Trace message")
+	log.Infof("Info message: %s", stringflag)
+	log.Warnf("Warn message")
 	log.Error("Error message")
 	log.Fatal("Fatal message")
 

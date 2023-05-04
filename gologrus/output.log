@@ -13,3 +13,48 @@ INFO: [2023/05/04 17:26:20] - Info message
 WARNING: [2023/05/04 17:26:20] - Warn message
 ERROR: [2023/05/04 17:26:20] - Error message
 FATAL: [2023/05/04 17:26:20] - Fatal message
+TRACE: [2023/05/04 19:01:54] - Trace message
+INFO: [2023/05/04 19:01:54] - Info message
+WARNING: [2023/05/04 19:01:54] - Warn message
+ERROR: [2023/05/04 19:01:54] - Error message
+FATAL: [2023/05/04 19:01:54] - Fatal message
+TRACE: [2023/05/04 20:36:59] - Trace message
+INFO: [2023/05/04 20:36:59] - Info message
+WARNING: [2023/05/04 20:36:59] - Warn message
+ERROR: [2023/05/04 20:36:59] - Error message
+FATAL: [2023/05/04 20:36:59] - Fatal message
+TRACE: [2023/05/04 20:43:21] - Trace message
+INFO: [2023/05/04 20:43:21] - Info message: %v0
+WARNING: [2023/05/04 20:43:21] - Warn message
+ERROR: [2023/05/04 20:43:21] - Error message
+FATAL: [2023/05/04 20:43:21] - Fatal message
+TRACE: [2023/05/04 20:43:40] - Trace message
+INFO: [2023/05/04 20:43:40] - Info message: %vYes
+WARNING: [2023/05/04 20:43:40] - Warn message
+ERROR: [2023/05/04 20:43:40] - Error message
+FATAL: [2023/05/04 20:43:40] - Fatal message
+TRACE: [2023/05/04 20:43:57] - Trace message
+INFO: [2023/05/04 20:43:57] - Info message: %sYes
+WARNING: [2023/05/04 20:43:57] - Warn message
+ERROR: [2023/05/04 20:43:57] - Error message
+FATAL: [2023/05/04 20:43:57] - Fatal message
+TRACE: [2023-05-04 20:57:01] - Trace message
+INFO: [2023-05-04 20:57:01] - Info message: %sYes
+WARNING: [2023-05-04 20:57:01] - Warn message
+ERROR: [2023-05-04 20:57:01] - Error message
+FATAL: [2023-05-04 20:57:01] - Fatal message
+TRACE: [2023-05-04 20:57:18] - %m%
+INFO: [2023-05-04 20:57:18] - %m%
+WARNING: [2023-05-04 20:57:18] - %m%
+ERROR: [2023-05-04 20:57:18] - %m%
+FATAL: [2023-05-04 20:57:18] - %m%
+TRACE: [2023-05-04 20:57:35] - Trace message
+INFO: [2023-05-04 20:57:35] - Info message: %sYes
+WARNING: [2023-05-04 20:57:35] - Warn message
+ERROR: [2023-05-04 20:57:35] - Error message
+FATAL: [2023-05-04 20:57:35] - Fatal message
+TRACE: [2023-05-04 20:58:28] - Trace message
+INFO: [2023-05-04 20:58:28] - Info message: Yes
+WARNING: [2023-05-04 20:58:28] - Warn message
+ERROR: [2023-05-04 20:58:28] - Error message
+FATAL: [2023-05-04 20:58:28] - Fatal message
