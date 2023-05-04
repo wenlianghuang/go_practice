@@ -1,0 +1,15 @@
+TRACE: [2023/05/04 17:15:45] - Trace message
+INFO: [2023/05/04 17:15:46] - Info message
+WARNING: [2023/05/04 17:15:46] - Warn message
+ERROR: [2023/05/04 17:15:46] - Error message
+FATAL: [2023/05/04 17:15:46] - Fatal message
+TRACE: [2023/05/04 17:20:33] - Trace message
+INFO: [2023/05/04 17:20:33] - Info message
+WARNING: [2023/05/04 17:20:33] - Warn message
+ERROR: [2023/05/04 17:20:33] - Error message
+FATAL: [2023/05/04 17:20:33] - Fatal message
+TRACE: [2023/05/04 17:26:20] - Trace message
+INFO: [2023/05/04 17:26:20] - Info message
+WARNING: [2023/05/04 17:26:20] - Warn message
+ERROR: [2023/05/04 17:26:20] - Error message
+FATAL: [2023/05/04 17:26:20] - Fatal message
