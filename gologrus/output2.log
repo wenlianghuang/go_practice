@@ -1,0 +1,5 @@
+TRACE: [2023-05-05 12:05:58] - Trace message
+INFO: [2023-05-05 12:05:59] - Info message: Yes
+WARNING: [2023-05-05 12:05:59] - Warn message
+ERROR: [2023-05-05 12:05:59] - Error message
+FATAL: [2023-05-05 12:05:59] - Fatal message

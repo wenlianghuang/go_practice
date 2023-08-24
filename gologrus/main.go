@@ -36,6 +36,11 @@ func main() {
 	}
 	defer f.Close()
 	fmt.Println("Test")
+	LogFilePath, errLogFilePath := os.Getwd()
+	if errLogFilePath != nil {
+		panic(errLogFilePath)
+	}
+
 	/*
 		log := &logrus.Logger{
 			// Log into f file handler and on os.Stdout
@@ -49,7 +54,7 @@ func main() {
 		}
 	*/
 	//xxxxf => %s variable
-	log := sublogrus.Sublogrusfunc()
+	log := sublogrus.Sublogrusfunc(LogFilePath)
 	log.Tracef("Trace message")
 	log.Infof("Info message: %s", stringflag)
 	log.Warnf("Warn message")
