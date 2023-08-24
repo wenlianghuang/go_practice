@@ -1,4 +1,3 @@
-// 其實他的response主要還是body,header主要是網路的一些一定會存在的設定。
 package main
 
 import (
@@ -6,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"sync"
 )
 
 type RequestData struct {
@@ -19,41 +19,72 @@ type ResponseData struct {
 	NewNumber int    `json:"newNumber"`
 }
 
+var (
+	requestData  = RequestData{Message: "Initial message", Number: 5}
+	requestMutex sync.Mutex
+)
+
 func main() {
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		// 讀取request的Body
-		body, _ := ioutil.ReadAll(r.Body)
+	http.HandleFunc("/testpy", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			requestMutex.Lock()
+			defer requestMutex.Unlock()
 
-		// 解析request的JSON數據
-		var requestData RequestData
-		err := json.Unmarshal(body, &requestData)
-		if err != nil {
-			fmt.Println("JSON unmarshaling failed:", err)
+			// Convert request data to JSON
+			jsonData, err := json.Marshal(requestData)
+			if err != nil {
+				http.Error(w, "JSON marshaling failed", http.StatusInternalServerError)
+				return
+			}
+
+			// Set response headers
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+
+			// Write JSON data as response
+			w.Write(jsonData)
+			return
+		} else if r.Method == http.MethodPost {
+			// Read request body
+			body, _ := ioutil.ReadAll(r.Body)
+
+			// Parse JSON data from request
+			var requestDataChange RequestData
+			err := json.Unmarshal(body, &requestDataChange)
+			if err != nil {
+				http.Error(w, "JSON unmarshaling failed", http.StatusBadRequest)
+				return
+			}
+
+			requestMutex.Lock()
+			defer requestMutex.Unlock()
+
+			// Modify request data
+			requestData.Number += requestDataChange.Number
+			requestData.Message = "Modified by server"
+			fmt.Println(requestData.Message)
+
+			// Convert response data to JSON
+			responseData := ResponseData{
+				Message:   requestData.Message,
+				Modified:  true,
+				NewNumber: requestData.Number,
+			}
+			jsonData, err := json.Marshal(responseData)
+			if err != nil {
+				http.Error(w, "JSON marshaling failed", http.StatusInternalServerError)
+				return
+			}
+
+			// Set response headers
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+
+			// Write JSON data as response
+			w.Write(jsonData)
 			return
 		}
-
-		// 修改request的數據
-		requestData.Message = "Modified by server"
-		requestData.Number += 10
-		fmt.Println(requestData.Message)
-		// 將respond數據轉為 JSON字串
-		jsonData, err := json.Marshal(ResponseData{
-			Message:   requestData.Message,
-			Modified:  true,
-			NewNumber: requestData.Number,
-		})
-		if err != nil {
-			fmt.Println("JSON marshaling failed:", err)
-			return
-		}
-
-		// 設置response的Header
-		w.Header().Set("Content-Type", "application/json")
-
-		// Response Body
-		fmt.Fprint(w, string(jsonData))
 	})
 
-	//http.ListenAndServe("192.168.100.9:80", nil)
-	http.ListenAndServe("192.168.100.9:80", nil)
+	http.ListenAndServe("10.36.172.78:8080", nil)
 }
