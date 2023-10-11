@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"sync"
 )
@@ -46,8 +46,8 @@ func main() {
 			return
 		} else if r.Method == http.MethodPost {
 			// Read request body
-			body, _ := ioutil.ReadAll(r.Body)
-
+			//body, _ := ioutil.ReadAll(r.Body)
+			body, _ := io.ReadAll(r.Body)
 			// Parse JSON data from request
 			var requestDataChange RequestData
 			err := json.Unmarshal(body, &requestDataChange)
@@ -86,5 +86,6 @@ func main() {
 		}
 	})
 
-	http.ListenAndServe("10.36.172.78:8080", nil)
+	//http.ListenAndServe("10.36.172.78:8080", nil)
+	http.ListenAndServe("192.168.100.9:8080", nil)
 }

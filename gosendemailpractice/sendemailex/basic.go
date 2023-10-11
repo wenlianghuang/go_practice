@@ -1,4 +1,4 @@
-//有可能在公司無法寄出，回家再試試看
+// 有可能在公司無法寄出，回家再試試看
 package sendemailex
 
 import (
@@ -11,7 +11,8 @@ func Basicinit() {
 	port := 587
 	email := "wenliangmatt@gmail.com"
 	password := "wenliang75"
-	toEmail := "wenliangmatt@gmail.com"
+	//toEmail := "wenliangmatt@gmail.com"
+	toEmail := "matt200335@yahoo.com.tw"
 	header := make(map[string]string)
 	header["From"] = "test" + "<" + email + ">"
 	header["To"] = toEmail
