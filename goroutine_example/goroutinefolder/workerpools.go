@@ -10,7 +10,7 @@ func worker(id int, jobs <-chan int, results chan<- int) {
 		fmt.Println("worker", id, "started  job", j)
 		time.Sleep(time.Second)
 		fmt.Println("worker", id, "finished job", j)
-		results <- j * 2
+		results <- j * 5
 	}
 }
 
@@ -32,4 +32,5 @@ func Workerpools() {
 	for a := 1; a <= numJobs; a++ {
 		<-results
 	}
+
 }
