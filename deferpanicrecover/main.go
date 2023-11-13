@@ -3,6 +3,7 @@ package main
 import "fmt"
 
 func main() {
+	// "recovery" have to follow with "defer"
 	defer func() {
 		if err := recover(); err != nil {
 			fmt.Println("Recovered from:", err)
@@ -21,5 +22,6 @@ func causePanic() {
 	fmt.Println("Start executing causePanic()...")
 
 	panic("Somehing went wrong.")
+	// Will not run below
 	fmt.Println("End exeucting causePanic()...")
 }

@@ -25,6 +25,7 @@ func init() {
 	flag.BoolVar(&boolflag, "boolflag", true, "bool flag value")
 	flag.StringVar(&stringflag, "stringflag", "Yes", "string flag value")
 }
+
 func main() {
 	//-h for --help
 	flag.Parse()
@@ -57,7 +58,7 @@ func main() {
 	log := sublogrus.Sublogrusfunc(LogFilePath)
 	log.Tracef("Trace message")
 	log.Infof("Info message: %s", stringflag)
-	log.Warnf("Warn message")
+	log.Warnf("Warn message:")
 	log.Error("Error message")
 	log.Fatal("Fatal message")
 
