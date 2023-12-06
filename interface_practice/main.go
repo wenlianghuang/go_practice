@@ -4,7 +4,7 @@ package main
 import "interfacepractice/interfacefolder"
 
 func main() {
-	//interfacefolder.Interfacevalue()
+	interfacefolder.Interfacevalue()
 	//interfacefolder.Interfacetype()
-	interfacefolder.Reflectex()
+	//interfacefolder.Reflectex()
 }
