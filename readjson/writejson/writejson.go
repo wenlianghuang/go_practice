@@ -3,8 +3,8 @@ package writejson
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
+	"os"
 )
 
 type Person struct {
@@ -28,7 +28,8 @@ func WritejsonFunc() {
 	}
 
 	// Write the data to a file named "write.json"
-	err = ioutil.WriteFile("write.json", data, 0644)
+	//err = ioutil.WriteFile("write.json", data, 0644)
+	err = os.WriteFile("write.json", data, 0644)
 	if err != nil {
 		log.Fatal(err)
 	}

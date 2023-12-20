@@ -3,7 +3,7 @@ package usersfunc
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"strconv"
 )
@@ -41,8 +41,8 @@ func UsersTest() {
 	defer jsonFile.Close()
 
 	// read our opened xmlFile as a byte array.
-	byteValue, _ := ioutil.ReadAll(jsonFile)
-
+	//byteValue, _ := ioutil.ReadAll(jsonFile)
+	byteValue, _ := io.ReadAll(jsonFile)
 	// we initialize our Users array
 	var users Users
 

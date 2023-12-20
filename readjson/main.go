@@ -3,11 +3,12 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
+	"os"
 	"readjson/interfaceex"
 	"readjson/interfaceex2"
 	"readjson/usersfunc"
+	"readjson/writejson"
 )
 
 type Person struct {
@@ -21,7 +22,13 @@ func processPerson(p Person) {
 
 func main() {
 	// Read JSON file
-	data, err := ioutil.ReadFile("people.json")
+	//data, err := ioutil.ReadFile("people.json")
+	if _, err := os.Stat("write.json"); err == nil {
+		os.Remove("./write.json")
+	} else {
+		fmt.Println("File 'write.json does not exist\n")
+	}
+	data, err := os.ReadFile("people.json")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -42,4 +49,5 @@ func main() {
 	//writejson.WritejsonFunc()
 	interfaceex.Interfacefunc()
 	interfaceex2.InterfaceFunc2()
+	writejson.WritejsonFunc()
 }
