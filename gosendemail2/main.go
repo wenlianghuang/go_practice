@@ -12,7 +12,8 @@ func main() {
 	smtpServer := "smtp.gmail.com"
 	senderEmail := "wenliangmatt@gmail.com"
 	senderPassword := "cylx tdls gtou pbsr"
-
+	//senderPassword := "sfqshkhevjpgurob"
+	//senderPassword := "wenliang75"
 	// Receiver
 	toEmail := "wenliangmatt@gmail.com"
 

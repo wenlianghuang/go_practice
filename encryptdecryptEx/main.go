@@ -21,7 +21,7 @@ func encrypt(plaintext string) string {
 	if err != nil {
 		panic(err)
 	}
-	//nonce: like IV(initial value)
+
 	nonce := make([]byte, gcm.NonceSize())
 	tempres, err := rand.Read(nonce)
 	if err != nil {
