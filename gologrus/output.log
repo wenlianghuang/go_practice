@@ -58,3 +58,13 @@ INFO: [2023-05-04 20:58:28] - Info message: Yes
 WARNING: [2023-05-04 20:58:28] - Warn message
 ERROR: [2023-05-04 20:58:28] - Error message
 FATAL: [2023-05-04 20:58:28] - Fatal message
+TRACE: [2024-06-04 22:01:09] - Trace message
+INFO: [2024-06-04 22:01:09] - Info message: Yes
+WARNING: [2024-06-04 22:01:09] - Warn message
+ERROR: [2024-06-04 22:01:09] - Error message
+FATAL: [2024-06-04 22:01:09] - Fatal message
+TRACE: [2024-06-04 22:03:09] - Trace message
+INFO: [2024-06-04 22:03:09] - Info message: Yes
+WARNING: [2024-06-04 22:03:09] - Warn message
+ERROR: [2024-06-04 22:03:09] - Error message
+FATAL: [2024-06-04 22:03:09] - Fatal message
