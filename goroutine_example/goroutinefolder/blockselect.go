@@ -5,6 +5,7 @@ import (
 	"time"
 )
 
+// select case to decide it will keep goining or return
 func Blockselect() {
 	ch := make(chan string)
 

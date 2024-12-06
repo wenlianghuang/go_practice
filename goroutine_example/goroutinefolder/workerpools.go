@@ -32,6 +32,7 @@ func Workerpools() {
 	close(jobs)
 
 	for a := 1; a <= numJobs; a++ {
+		// result reciev from results channel
 		result := <-results
 		fmt.Println("Result:", result)
 	}
