@@ -11,7 +11,7 @@ func main() {
 	//goroutinefolder.Blockselect()
 	//goroutinefolder.Directions()
 	//goroutinefolder.Closingchannels()
-	//goroutinefolder.Workerpools()
+	goroutinefolder.Workerpools()
 	//goroutinefolder.SyncMutex2()
-	goroutinefolder.MultiGoroutineoneval()
+	//goroutinefolder.MultiGoroutineoneval()
 }

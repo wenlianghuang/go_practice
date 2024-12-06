@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+// jobs => read-only channel, receive task mission
+// results => write-only channel, send task mission
 func worker(id int, jobs <-chan int, results chan<- int) {
 	for j := range jobs {
 		fmt.Println("worker", id, "started  job", j)
@@ -30,7 +32,8 @@ func Workerpools() {
 	close(jobs)
 
 	for a := 1; a <= numJobs; a++ {
-		<-results
+		result := <-results
+		fmt.Println("Result:", result)
 	}
 
 }
