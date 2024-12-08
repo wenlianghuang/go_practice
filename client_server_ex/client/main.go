@@ -70,13 +70,12 @@ func postJSON(filename string, targetUrl string) error {
 
 func main() {
 	// Set the target URL and the JSON file path
-	//targetUrl := "https://asgard-uat.acer.com/Asgard/upload"
 	targetUrl := "http://localhost:9090/upload"
 	filename := "./example.json"
 
 	// Upload the JSON file
 	err := postJSON(filename, targetUrl)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("Error:", err)
 	}
 }
