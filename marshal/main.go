@@ -1,8 +1,10 @@
+// struct to json
 package main
 
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 )
 
 type Book struct {
@@ -25,6 +27,11 @@ func main() {
 
 	book := Book{Title: "Learning Go", Author: author}
 
-	byteSlice, _ := json.MarshalIndent(book, "", "")
+	// Convert the struct to JSON, and have it indented
+	byteSlice, _ := json.MarshalIndent(book, "", "  ") // Add indentation here
 	fmt.Println(string(byteSlice))
+	err := os.WriteFile("book.json", byteSlice, 0644)
+	if err != nil {
+		fmt.Println("Error writing JSON to file:", err)
+	}
 }
