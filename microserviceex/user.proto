@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package user;
+
+option go_package = "/test/microservice/proto/user";
+// 定義服務
+service UserService {
+  rpc GetUser(GetUserRequest) returns (GetUserResponse);
+}
+
+// 定義消息結構
+message GetUserRequest {
+  string id = 1;
+}
+
+message GetUserResponse {
+  string id = 1;
+  string name = 2;
+  int32 age = 3;
+}

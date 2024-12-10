@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package order;
+
+option go_package = "/test/microservice/proto/order";
+// 定義服務
+service OrderService {
+  rpc GetOrder(GetOrderRequest) returns (GetOrderResponse);
+}
+
+// 定義消息結構
+message GetOrderRequest {
+  string id = 1;
+  string userId = 2;
+}
+
+message GetOrderResponse {
+  string id = 1;
+  string userId = 2;
+  float amount = 3;
+}
