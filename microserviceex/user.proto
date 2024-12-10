@@ -2,13 +2,12 @@ syntax = "proto3";
 
 package user;
 
-option go_package = "/test/microservice/proto/user";
-// 定義服務
+option go_package = "proto/user";
+
 service UserService {
   rpc GetUser(GetUserRequest) returns (GetUserResponse);
 }
 
-// 定義消息結構
 message GetUserRequest {
   string id = 1;
 }

@@ -5,7 +5,9 @@ import (
 	"log"
 	"net/http"
 
-	userpb "matttest/microservice/proto/user"
+	orderpb "microserviceex/proto/order"
+	userpb "microserviceex/proto/user"
+
 	"google.golang.org/grpc"
 
 	"github.com/gin-gonic/gin"

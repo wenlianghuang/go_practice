@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package order;
 
-option go_package = "/test/microservice/proto/order";
+option go_package = "proto/order";
 // 定義服務
 service OrderService {
   rpc GetOrder(GetOrderRequest) returns (GetOrderResponse);
