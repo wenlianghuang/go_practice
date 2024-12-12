@@ -1,3 +1,4 @@
+// wait應該就是等到goroutine都執行完畢才會繼續執行下去
 package goroutinefolder
 
 import (

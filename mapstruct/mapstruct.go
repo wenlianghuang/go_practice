@@ -1,4 +1,4 @@
-package mapstruct
+package main
 
 import (
 	"fmt"
@@ -10,7 +10,7 @@ type Student struct {
 	Name string
 }
 
-func MapStruct() {
+func main() {
 	var student1 Student
 	student1.ID = 1
 	student1.Name = "Daniel"
@@ -29,8 +29,8 @@ func MapStruct() {
 	var names []string
 
 	for studentIndex, studentobj := range students {
-		fmt.Println(studentIndex)
-		fmt.Println(studentobj)
+		fmt.Println(studentIndex) //string
+		fmt.Println(studentobj)   //Student
 		names = append(names, studentobj.Name)
 	}
 
