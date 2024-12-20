@@ -18,7 +18,7 @@ type OSLRCD struct {
 
 func main() {
 	jsonData := []byte(`{
-		"OSLRCD":"/Services/OSLRCD/AA.BBBB.CCC",
+		"OSLRCDPath":"/Services/OSLRCD/AA.BBBB.CCC",
 		"RSLKITID":"dd.ee.ff",
 		"SCD":{
 			"ISOPath":"/Services/SCD",
@@ -35,4 +35,6 @@ func main() {
 
 	fmt.Println("ISOName: ", oslrcd.SCD.ISOName)
 	fmt.Println("ISOPath: ", oslrcd.SCD.ISOPath)
+	fmt.Println("OSLRCDPath: ", oslrcd.OSLRCDPath)
+	fmt.Println("RSLKitID: ", oslrcd.RSLKitID)
 }
