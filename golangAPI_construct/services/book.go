@@ -4,102 +4,123 @@ import (
 	"errors"
 	"golangAPI_construct/models"
 	"strconv"
+	"sync"
 )
 
-var books = []models.Book{
-	{ID: "1", Title: "1984", Author: "George Orwell", Price: 9.99},
-	{ID: "2", Title: "Brave New World", Author: "Aldous Huxley", Price: 8.99},
-	{ID: "3", Title: "To Kill a Mockingbird", Author: "Harper Lee", Price: 12.99},
+var (
+	// 統一錯誤
+	ErrBookNotFound = errors.New("book not found")
+)
+
+type BookService struct {
+	mu     sync.RWMutex
+	books  []models.Book
+	nextID int
 }
 
-var nextID = 4
-
-type BookService struct{}
-
+// 初始化內建資料
 func NewBookService() *BookService {
-	return &BookService{}
+	return &BookService{
+		books: []models.Book{
+			{ID: "1", Title: "1984", Author: "George Orwell", Price: 9.99},
+			{ID: "2", Title: "Brave New World", Author: "Aldous Huxley", Price: 8.99},
+			{ID: "3", Title: "To Kill a Mockingbird", Author: "Harper Lee", Price: 12.99},
+		},
+		nextID: 4,
+	}
 }
 
 func (s *BookService) GetAllBooks() []models.Book {
-	return books
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	cp := make([]models.Book, len(s.books))
+	copy(cp, s.books)
+	return cp
 }
 
 func (s *BookService) GetBooksByAuthor(author string) []models.Book {
-	var filteredBooks []models.Book
-	for _, book := range books {
-		if book.Author == author {
-			filteredBooks = append(filteredBooks, book)
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	var filtered []models.Book
+	for _, b := range s.books {
+		if b.Author == author {
+			filtered = append(filtered, b)
 		}
 	}
-	return filteredBooks
+	return filtered
 }
 
 func (s *BookService) GetBookByID(id string) (*models.Book, error) {
-	for _, book := range books {
-		if book.ID == id {
-			return &book, nil
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for i := range s.books {
+		if s.books[i].ID == id {
+			return &s.books[i], nil
 		}
 	}
-	return nil, errors.New("book not found")
+	return nil, ErrBookNotFound
 }
 
 func (s *BookService) CreateBook(book models.Book) (*models.Book, error) {
-	// 檢查是否已存在相同 ID
-	for _, existingBook := range books {
-		if existingBook.ID == book.ID {
-			return nil, errors.New("book with this ID already exists")
-		}
-	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
-	// 如果沒有提供 ID，自動生成
-	if book.ID == "" {
-		book.ID = strconv.Itoa(nextID)
-		nextID++
-	}
+	// 忽略外部傳入的 ID，統一由系統產生
+	book.ID = strconv.Itoa(s.nextID)
+	s.nextID++
 
-	books = append(books, book)
-	return &book, nil
+	s.books = append(s.books, book)
+	return &s.books[len(s.books)-1], nil
 }
 
 func (s *BookService) UpdateBook(id string, book models.Book) (*models.Book, error) {
-	for i, existingBook := range books {
-		if existingBook.ID == id {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.books {
+		if s.books[i].ID == id {
 			book.ID = id
-			books[i] = book
-			return &book, nil
+			s.books[i] = book
+			return &s.books[i], nil
 		}
 	}
-	return nil, errors.New("book not found")
+	return nil, ErrBookNotFound
 }
 
 func (s *BookService) PatchBook(id string, patch models.BookPatch) (*models.Book, error) {
-	for i, book := range books {
-		if book.ID == id {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.books {
+		if s.books[i].ID == id {
 			if patch.Title != nil {
-				books[i].Title = *patch.Title
+				s.books[i].Title = *patch.Title
 			}
 			if patch.Author != nil {
-				books[i].Author = *patch.Author
+				s.books[i].Author = *patch.Author
 			}
 			if patch.Price != nil {
-				books[i].Price = *patch.Price
+				s.books[i].Price = *patch.Price
 			}
-			return &books[i], nil
+			return &s.books[i], nil
 		}
 	}
-	return nil, errors.New("book not found")
+	return nil, ErrBookNotFound
 }
 
 func (s *BookService) DeleteBook(id string) (*models.Book, error) {
-	for i, book := range books {
-		if book.ID == id {
-			books = append(books[:i], books[i+1:]...)
-			return &book, nil
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.books {
+		if s.books[i].ID == id {
+			deleted := s.books[i]
+			s.books = append(s.books[:i], s.books[i+1:]...)
+			return &deleted, nil
 		}
 	}
-	return nil, errors.New("book not found")
+	return nil, ErrBookNotFound
 }
 
 func (s *BookService) GetBooksCount() int {
-	return len(books)
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return len(s.books)
 }

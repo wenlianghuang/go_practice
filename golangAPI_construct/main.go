@@ -1,8 +1,23 @@
 package main
 
-import "golangAPI_construct/routes"
+import (
+	"log"
+	"os"
+
+	"golangAPI_construct/routes"
+)
 
 func main() {
 	router := routes.SetupRoutes()
-	router.Run("localhost:8080")
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	addr := ":" + port
+	log.Println("Starting server on", addr)
+	if err := router.Run(addr); err != nil {
+		log.Fatal(err)
+	}
 }
