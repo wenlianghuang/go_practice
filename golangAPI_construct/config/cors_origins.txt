@@ -1,0 +1,3 @@
+# 允許的前端來源
+http://localhost:3000
+https://example.com
