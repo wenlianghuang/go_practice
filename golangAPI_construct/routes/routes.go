@@ -9,13 +9,19 @@ import (
 )
 
 func SetupRoutes() *gin.Engine {
-	router := gin.New()
-	router.Use(gin.Logger(), gin.Recovery(), middleware.CORS())
+	r := gin.New()
+	r.Use(
+		middleware.RequestID(),
+		middleware.ErrorHandler(),
+		middleware.Logger(),
+		middleware.CORS(), // Assuming CORS middleware is defined elsewhere
+		gin.Recovery(),
+	)
 
 	bookService := services.NewBookService()
 	bookHandler := handlers.NewBookHandler(bookService)
 
-	api := router.Group("/api")
+	api := r.Group("/api")
 	{
 		api.GET("/health", bookHandler.HealthCheck)
 
@@ -27,5 +33,5 @@ func SetupRoutes() *gin.Engine {
 		api.DELETE("/books/:id", bookHandler.DeleteBook)
 	}
 
-	return router
+	return r
 }
