@@ -10,6 +10,7 @@ import (
 
 func SetupRoutes() *gin.Engine {
 	r := gin.New()
+	// set up global middleware
 	r.Use(
 		middleware.RequestID(),
 		middleware.ErrorHandler(),
@@ -21,17 +22,41 @@ func SetupRoutes() *gin.Engine {
 	bookService := services.NewBookService()
 	bookHandler := handlers.NewBookHandler(bookService)
 
-	api := r.Group("/api")
+	/*
+		api := r.Group("/api")
+		{
+			api.GET("/health", bookHandler.HealthCheck)
+
+			api.GET("/books", bookHandler.GetBooks)
+			api.POST("/books", bookHandler.CreateBook)
+			api.GET("/books/:id", bookHandler.GetBookByID)
+			api.PUT("/books/:id", bookHandler.UpdateBook)
+			api.PATCH("/books/:id", bookHandler.PatchBook)
+			api.DELETE("/books/:id", bookHandler.DeleteBook)
+
+		}
+
+		v1 := r.Group("/api/v1")
+		{
+			v1.POST("/login", handlers.Login)
+		}
+	*/
+	r.GET("/api/health", bookHandler.HealthCheck)
+	// v1 group with JWT middleware
+	v1 := r.Group("/api/v1")
 	{
-		api.GET("/health", bookHandler.HealthCheck)
+		v1.POST("/login", handlers.Login)
 
-		api.GET("/books", bookHandler.GetBooks)
-		api.POST("/books", bookHandler.CreateBook)
-		api.GET("/books/:id", bookHandler.GetBookByID)
-		api.PUT("/books/:id", bookHandler.UpdateBook)
-		api.PATCH("/books/:id", bookHandler.PatchBook)
-		api.DELETE("/books/:id", bookHandler.DeleteBook)
+		// Protected book routes
+		books := v1.Group("/books", middleware.JWTAuthMiddleware())
+		{
+			books.GET("", bookHandler.GetBooks)
+			books.POST("", bookHandler.CreateBook)
+			books.GET("/:id", bookHandler.GetBookByID)
+			books.PUT("/:id", bookHandler.UpdateBook)
+			books.PATCH("/:id", bookHandler.PatchBook)
+			books.DELETE("/:id", bookHandler.DeleteBook)
+		}
 	}
-
 	return r
 }

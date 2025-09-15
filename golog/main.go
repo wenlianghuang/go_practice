@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"log"
 	"os"
 
@@ -39,7 +38,7 @@ func main() {
 	}
 
 	// 寫入 JSON 資料到檔案
-	err = ioutil.WriteFile("data.json", jsonData, 0644)
+	err = os.WriteFile("data.json", jsonData, 0644)
 	if err != nil {
 		logf.Error("無法寫入 JSON 資料到檔案: %v", err)
 		log.Fatalf("無法寫入 JSON 資料到檔案: %v", err)
@@ -48,7 +47,8 @@ func main() {
 	//fmt.Println("成功創建並儲存 JSON 檔案")
 	logf.Info("成功創建並儲存 JSON 檔案")
 	// 讀取檔案並解析 JSON 資料
-	fileContent, err := ioutil.ReadFile("data.json")
+	fileContent, err := os.ReadFile("data.json")
+
 	if err != nil {
 		logf.Error("無法讀取檔案: %v", err)
 		log.Fatalf("無法讀取檔案: %v", err)
@@ -72,7 +72,7 @@ func main() {
 	}
 
 	// 寫入更新後的 JSON 資料到檔案
-	err = ioutil.WriteFile("data.json", updatedJSONData, 0644)
+	err = os.WriteFile("data.json", updatedJSONData, 0644)
 	if err != nil {
 		logf.Error("無法寫入更新後的 JSON 資料到檔案: %v", err)
 		log.Fatalf("無法寫入更新後的 JSON 資料到檔案: %v", err)

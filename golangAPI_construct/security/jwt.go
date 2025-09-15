@@ -12,6 +12,13 @@ type CustomClaims struct {
 	jwt.RegisteredClaims
 }
 
+//var jwtSecret = []byte("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiIsImV4cCI6MTc1NzkyNDI1NiwiaWF0IjoxNzU3OTE3MDU2fQ.D1PXiUEKUMJu0YJgegP0_uVQSyLKErQ6-sjKubeL8UI") // Use a secure key in production
+
+type Claims struct {
+	Username string `json:"username"`
+	jwt.RegisteredClaims
+}
+
 func secret() []byte {
 	s := os.Getenv("JWT_SECRET")
 	if s == "" {
@@ -47,4 +54,19 @@ func ValidateToken(tokenStr string) (*CustomClaims, error) {
 		return claims, nil
 	}
 	return nil, errors.New("invalid token")
+}
+
+// ParseToken parses a JWT token string and returns the claims if valid.
+func ParseToken(tokenString string) (*Claims, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+		return secret(), nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	claims, ok := token.Claims.(*Claims)
+	if !ok || !token.Valid {
+		return nil, errors.New("invalid token")
+	}
+	return claims, nil
 }
