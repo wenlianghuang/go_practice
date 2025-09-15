@@ -42,7 +42,7 @@ func SetupRoutes() *gin.Engine {
 		}
 	*/
 	r.GET("/api/health", bookHandler.HealthCheck)
-	// v1 group with JWT middleware
+	// v1 group with JWT middleware => verify token for all /api/v1/books routes
 	v1 := r.Group("/api/v1")
 	{
 		v1.POST("/login", handlers.Login)

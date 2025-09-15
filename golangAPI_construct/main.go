@@ -19,7 +19,6 @@ func main() {
 		panic("failed to init logger: " + err.Error())
 	}
 	defer logFile.Close()
-
 	router := routes.SetupRoutes()
 
 	port := os.Getenv("PORT")

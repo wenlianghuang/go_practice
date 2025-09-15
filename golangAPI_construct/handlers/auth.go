@@ -15,14 +15,22 @@ type LoginRequest struct {
 	Password string `json:"password"`
 }
 
+// DEMO 用：硬編碼一個 bcrypt 雜湊（密碼為 "password"）
+var demoUser = struct {
+	Username     string
+	PasswordHash string
+}{
+	Username:     "Matt",
+	PasswordHash: "$2a$10$AQuMpFYbHBfGx2F2bS0.x.Nm.YTFzwjHaznp9uUCN9V5t3sweZ4w6", // 請用 security.HashPassword("password") 產生
+}
+
 func Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.Error(responses.NewAppError(http.StatusBadRequest, "INVALID_JSON", "invalid request body"))
 		return
 	}
-	// DEMO 用：請改為真正的驗證 (DB / LDAP ...)
-	if req.Username != "admin" || req.Password != "password" {
+	if req.Username != demoUser.Username || !security.CheckPassword(demoUser.PasswordHash, req.Password) {
 		c.Error(responses.NewAppError(http.StatusUnauthorized, "BAD_CREDENTIALS", "invalid username or password"))
 		return
 	}
