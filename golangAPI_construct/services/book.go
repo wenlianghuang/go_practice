@@ -18,6 +18,20 @@ type BookService struct {
 	nextID int
 }
 
+type BookServiceInterface interface {
+	GetAllBooks() []models.Book
+	GetBooksByAuthor(author string) []models.Book
+	GetBookByID(id string) (*models.Book, error)
+	CreateBook(book models.Book) (*models.Book, error)
+	UpdateBook(id string, book models.Book) (*models.Book, error)
+	PatchBook(id string, patch models.BookPatch) (*models.Book, error)
+	DeleteBook(id string) (*models.Book, error)
+	GetBooksCount() int
+}
+
+// 保證 BookService 實作了介面
+var _ BookServiceInterface = (*BookService)(nil)
+
 // 初始化內建資料
 func NewBookService() *BookService {
 	return &BookService{

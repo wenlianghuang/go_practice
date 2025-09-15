@@ -14,10 +14,11 @@ import (
 var startTime = time.Now()
 
 type BookHandler struct {
-	service *services.BookService
+	//service *services.BookService
+	service services.BookServiceInterface
 }
 
-func NewBookHandler(service *services.BookService) *BookHandler {
+func NewBookHandler(service services.BookServiceInterface) *BookHandler {
 	return &BookHandler{service: service}
 }
 
