@@ -3,7 +3,7 @@ package main
 import "goroutineexample/goroutinefolder"
 
 func main() {
-	//goroutinefolder.Syncmutex()
+	goroutinefolder.Syncmutex()
 	//goroutinefolder.Channelblockpush()
 	//goroutinefolder.Channelblockpull()
 	//goroutinefolder.Channelblockpullwait()
@@ -11,7 +11,7 @@ func main() {
 	//goroutinefolder.Foorloop()
 	//goroutinefolder.Blockselect()
 	//goroutinefolder.Directions()
-	goroutinefolder.Closingchannels()
+	//goroutinefolder.Closingchannels()
 	//goroutinefolder.Workerpools()
 	//goroutinefolder.SyncMutex2()
 	//goroutinefolder.MultiGoroutineoneval()

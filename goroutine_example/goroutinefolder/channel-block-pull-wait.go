@@ -14,6 +14,7 @@ func Channelblockpullwait() {
 	done := make(chan string)
 	wg.Add(1)
 	go func() {
+		// 一定要 -1, 不然會被阻塞在這裡
 		defer wg.Done()
 
 		fmt.Println("calculate goroutine starts calculating")
