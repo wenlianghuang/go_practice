@@ -1,9 +1,13 @@
 package routes
 
 import (
+	"context"
+	"golangAPI_construct/data"
 	"golangAPI_construct/handlers"
+	"golangAPI_construct/logging"
 	"golangAPI_construct/middleware"
 	"golangAPI_construct/services"
+	"os"
 
 	"github.com/gin-gonic/gin"
 )
@@ -18,29 +22,31 @@ func SetupRoutes() *gin.Engine {
 		middleware.CORS(), // Assuming CORS middleware is defined elsewhere
 		gin.Recovery(),
 	)
+	// 決定使用記憶體會資料庫實作
+	var bookService services.BookServiceInterface
+	if os.Getenv("USE_DB") == "true" {
+		db, err := data.Open()
+		if err != nil {
+			panic(err)
+		}
+		if err := data.Migrate(context.Background(), db); err != nil {
+			panic(err)
+		}
+		// link to the book_db.go
+		bookService = services.NewBookServiceDB(db)
+	} else {
+		// link to the book.go
+		bookService = services.NewBookService()
+		logging.Logger.Print("[BOOT] Book service: in-memory mode")
+	}
 
-	bookService := services.NewBookService()
+	//bookService := services.NewBookService()
 	bookHandler := handlers.NewBookHandler(bookService)
 
-	/*
-		api := r.Group("/api")
-		{
-			api.GET("/health", bookHandler.HealthCheck)
+	// 啟動時印出目前資料筆數，方便確認來源是否為 DB
+	//log.Printf("[BOOT] Books count at start: %d", bookService.GetBooksCount())
+	logging.Logger.Printf("[BOOT] Books count at start: %d", len(bookService.GetAllBooks()))
 
-			api.GET("/books", bookHandler.GetBooks)
-			api.POST("/books", bookHandler.CreateBook)
-			api.GET("/books/:id", bookHandler.GetBookByID)
-			api.PUT("/books/:id", bookHandler.UpdateBook)
-			api.PATCH("/books/:id", bookHandler.PatchBook)
-			api.DELETE("/books/:id", bookHandler.DeleteBook)
-
-		}
-
-		v1 := r.Group("/api/v1")
-		{
-			v1.POST("/login", handlers.Login)
-		}
-	*/
 	r.GET("/api/health", bookHandler.HealthCheck)
 	// v1 group with JWT middleware => verify token for all /api/v1/books routes
 	v1 := r.Group("/api/v1")
