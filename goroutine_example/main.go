@@ -3,7 +3,7 @@ package main
 import "goroutineexample/goroutinefolder"
 
 func main() {
-	goroutinefolder.Syncmutex()
+	//goroutinefolder.Syncmutex()
 	//goroutinefolder.Channelblockpush()
 	//goroutinefolder.Channelblockpull()
 	//goroutinefolder.Channelblockpullwait()
@@ -13,6 +13,13 @@ func main() {
 	//goroutinefolder.Directions()
 	//goroutinefolder.Closingchannels()
 	//goroutinefolder.Workerpools()
+	//goroutinefolder.WorkerpoolV2()
 	//goroutinefolder.SyncMutex2()
 	//goroutinefolder.MultiGoroutineoneval()
+	//goroutinefolder.WaitgroupMutex()
+	//goroutinefolder.WaitgroupMutexAdvanced()
+
+	//goroutinefolder.ContextCancelTimeout()
+	//goroutinefolder.PipelineFaninFanout()
+	goroutinefolder.SignalControlAndClosing()
 }
