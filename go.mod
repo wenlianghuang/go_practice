@@ -1,6 +1,6 @@
 module github.com/username/myproject
 
-go 1.17
+go 1.24.0
 
 require github.com/gin-gonic/gin v1.8.1
 
@@ -32,6 +32,7 @@ require (
 	github.com/valyala/tcplisten v1.0.0 // indirect
 	github.com/xuri/efp v0.0.0-20230802181842-ad255f2331ca // indirect
 	github.com/xuri/nfp v0.0.0-20230819163627-dc951e3ffe1a // indirect
+	golang.org/x/sync v0.17.0 // indirect
 )
 
 require (
