@@ -15,6 +15,8 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+// FetchResult represents the result of fetching a URL, including its status code,
+// the duration of the fetch operation, and any error encountered.
 type FetchResult struct {
 	URL      string
 	Status   int
@@ -90,6 +92,15 @@ func fetchWithRetry(ctx context.Context, client *http.Client, rate <-chan time.T
 	return FetchResult{URL: url, Duration: time.Since(start), Err: fmt.Errorf("exhausted retries")}
 }
 
+// waitWithJitter waits for a duration calculated using exponential backoff and jitter.
+// The wait time is computed as: base * 2^(attempt-1) + jitter, where jitter is up to 20% of the backoff.
+// The function respects context cancellation and will return early if the context is done.
+//
+// Parameters:
+//
+//	ctx    - Context to allow cancellation of the wait.
+//	base   - The base duration for backoff calculation.
+//	attempt- The current retry attempt (used to calculate exponential backoff).
 func waitWithJitter(ctx context.Context, base time.Duration, attempt int) {
 	// 指數退避 + 抖動：base * 2^(attempt-1) + jitter(20%)
 	backoff := base * time.Duration(1<<(attempt-1))
@@ -102,6 +113,11 @@ func waitWithJitter(ctx context.Context, base time.Duration, attempt int) {
 	}
 }
 
+// main is the entry point of the program. It demonstrates bounded concurrency, rate limiting, and retry logic
+// for making HTTP requests to a set of URLs. The function supports graceful shutdown via Ctrl+C (SIGINT/SIGTERM).
+// It uses an errgroup to manage goroutines, limits concurrent requests, and aggregates results with success/failure
+// counts. Each request is retried on failure with exponential backoff, and results are printed to the console.
+// The HTTP client is configured with connection pooling for efficiency.
 func main() {
 	// 允許 Ctrl+C 優雅關閉
 	rootCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
