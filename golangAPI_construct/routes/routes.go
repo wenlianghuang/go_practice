@@ -12,7 +12,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+<<<<<<< HEAD
 // test git rebase.
+=======
+// test git rebase
+>>>>>>> feature-login
 func SetupRoutes() *gin.Engine {
 	r := gin.New()
 	// set up global middleware
