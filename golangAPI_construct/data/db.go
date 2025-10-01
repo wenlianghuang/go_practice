@@ -6,39 +6,35 @@ import (
 	"golangAPI_construct/logging"
 	"log"
 	"os"
-	"path/filepath"
 	"time"
 
-	_ "modernc.org/sqlite" // 重要：載入 SQLite driver
+	_ "github.com/lib/pq" // PostgreSQL driver
 )
 
 func Open() (*sql.DB, error) {
 	dsn := os.Getenv("DB_DSN")
 	if dsn == "" {
-		// 相對於「執行時的工作目錄」
-		//dsn = "file:books.db?cache=shared&mode=rwc&_pragma=foreign_keys(ON)"
-		// Use absolute path to avoid confusion
-		cwd, err := os.Getwd()
-		if err != nil {
-			return nil, err
-		}
-		absPath, err := filepath.Abs(filepath.Join(cwd, "books.db"))
-		if err != nil {
-			return nil, err
-		}
-		// modernc sqlite DSN 建議使用 file: 前綴；Windows/Unix 通用用 / 分隔
-		dsn = fmt.Sprintf("file:%s?cache=shared&mode=rwc&_pragma=foreign_keys(ON)", filepath.ToSlash(absPath))
+		// PostgreSQL 預設連接字串
+		host := getEnvOrDefault("DB_HOST", "localhost")
+		port := getEnvOrDefault("DB_PORT", "5432")
+		user := getEnvOrDefault("DB_USER", "postgres")
+		password := getEnvOrDefault("DB_PASSWORD", "password")
+		dbname := getEnvOrDefault("DB_NAME", "books_db")
+		sslmode := getEnvOrDefault("DB_SSLMODE", "disable")
+
+		dsn = fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
+			host, port, user, password, dbname, sslmode)
 	}
-	//log.Printf("[DB Opening SQLite with DNS=%s]", dsn)
-	logging.Logger.Printf("[DB] Opening SQLite with DSN=%s", dsn)
-	db, err := sql.Open("sqlite", dsn)
+
+	logging.Logger.Printf("[DB] Opening PostgreSQL with DSN=%s", maskPassword(dsn))
+	db, err := sql.Open("postgres", dsn)
 	if err != nil {
 		return nil, err
 	}
 
-	// SQLite 建議小連線池
-	db.SetMaxOpenConns(1)
-	db.SetMaxIdleConns(1)
+	// PostgreSQL 連線池設定
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(25)
 	db.SetConnMaxIdleTime(5 * time.Minute)
 	db.SetConnMaxLifetime(60 * time.Minute)
 
@@ -47,6 +43,19 @@ func Open() (*sql.DB, error) {
 		return nil, err
 	}
 
-	log.Printf("[DB] connected dsn=%s", dsn)
+	log.Printf("[DB] connected to PostgreSQL")
 	return db, nil
+}
+
+func getEnvOrDefault(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}
+
+// 遮蔽密碼用於日誌記錄
+func maskPassword(dsn string) string {
+	// 簡單的密碼遮蔽，實際使用可以更複雜
+	return "host=... user=... dbname=... (password masked)"
 }

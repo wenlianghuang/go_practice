@@ -8,10 +8,10 @@ import (
 func Migrate(ctx context.Context, db *sql.DB) error {
 	const createTable = `
 CREATE TABLE IF NOT EXISTS books (
-    id     INTEGER PRIMARY KEY AUTOINCREMENT,
-    title  TEXT NOT NULL,
-    author TEXT NOT NULL,
-    price  REAL NOT NULL
+    id     SERIAL PRIMARY KEY,
+    title  VARCHAR(255) NOT NULL,
+    author VARCHAR(255) NOT NULL,
+    price  DECIMAL(10,2) NOT NULL
 );`
 	if _, err := db.ExecContext(ctx, createTable); err != nil {
 		return err
@@ -33,5 +33,3 @@ INSERT INTO books (title, author, price) VALUES
 	}
 	return nil
 }
-
-// test comment

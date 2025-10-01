@@ -50,7 +50,7 @@ func (s *BookServiceDB) GetAllBooks() []models.Book {
 
 func (s *BookServiceDB) GetBooksByAuthor(author string) []models.Book {
 	rows, err := s.db.QueryContext(context.Background(),
-		`SELECT id, title, author, price FROM books WHERE author = ? ORDER BY id`, author)
+		`SELECT id, title, author, price FROM books WHERE author = $1 ORDER BY id`, author)
 	if err != nil {
 		return []models.Book{}
 	}
@@ -88,7 +88,7 @@ func (s *BookServiceDB) GetBookByID(id string) (*models.Book, error) {
 		price  float64
 	)
 	err = s.db.QueryRowContext(context.Background(),
-		`SELECT title, author, price FROM books WHERE id = ?`, nid).
+		`SELECT title, author, price FROM books WHERE id = $1`, nid).
 		Scan(&title, &author, &price)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrBookNotFound
@@ -105,13 +105,10 @@ func (s *BookServiceDB) GetBookByID(id string) (*models.Book, error) {
 }
 
 func (s *BookServiceDB) CreateBook(book models.Book) (*models.Book, error) {
-	res, err := s.db.ExecContext(context.Background(),
-		`INSERT INTO books (title, author, price) VALUES (?,?,?)`,
-		book.Title, book.Author, book.Price)
-	if err != nil {
-		return nil, err
-	}
-	lastID, err := res.LastInsertId()
+	var lastID int64
+	err := s.db.QueryRowContext(context.Background(),
+		`INSERT INTO books (title, author, price) VALUES ($1,$2,$3) RETURNING id`,
+		book.Title, book.Author, book.Price).Scan(&lastID)
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +122,7 @@ func (s *BookServiceDB) UpdateBook(id string, book models.Book) (*models.Book, e
 		return nil, ErrBookNotFound
 	}
 	res, err := s.db.ExecContext(context.Background(),
-		`UPDATE books SET title = ?, author = ?, price = ? WHERE id = ?`,
+		`UPDATE books SET title = $1, author = $2, price = $3 WHERE id = $4`,
 		book.Title, book.Author, book.Price, nid)
 	if err != nil {
 		return nil, err
@@ -139,20 +136,25 @@ func (s *BookServiceDB) UpdateBook(id string, book models.Book) (*models.Book, e
 }
 
 func (s *BookServiceDB) PatchBook(id string, patch models.BookPatch) (*models.Book, error) {
-	cur, err := s.GetBookByID(id)
+	// 首先獲取現有記錄
+	current, err := s.GetBookByID(id)
 	if err != nil {
 		return nil, err
 	}
+
+	// 套用部分更新
 	if patch.Title != nil {
-		cur.Title = *patch.Title
+		current.Title = *patch.Title
 	}
 	if patch.Author != nil {
-		cur.Author = *patch.Author
+		current.Author = *patch.Author
 	}
 	if patch.Price != nil {
-		cur.Price = *patch.Price
+		current.Price = *patch.Price
 	}
-	return s.UpdateBook(id, *cur)
+
+	// 執行完整更新
+	return s.UpdateBook(id, *current)
 }
 
 func (s *BookServiceDB) DeleteBook(id string) (*models.Book, error) {
@@ -165,7 +167,7 @@ func (s *BookServiceDB) DeleteBook(id string) (*models.Book, error) {
 		return nil, ErrBookNotFound
 	}
 	res, err := s.db.ExecContext(context.Background(),
-		`DELETE FROM books WHERE id = ?`, nid)
+		`DELETE FROM books WHERE id = $1`, nid)
 	if err != nil {
 		return nil, err
 	}
