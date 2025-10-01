@@ -15,13 +15,30 @@ func Open() (*sql.DB, error) {
 	dsn := os.Getenv("DB_DSN")
 	if dsn == "" {
 		// PostgreSQL 預設連接字串
-		host := getEnvOrDefault("DB_HOST", "localhost")
-		port := getEnvOrDefault("DB_PORT", "5432")
-		user := getEnvOrDefault("DB_USER", "postgres")
-		password := getEnvOrDefault("DB_PASSWORD", "password")
-		dbname := getEnvOrDefault("DB_NAME", "books_db")
-		sslmode := getEnvOrDefault("DB_SSLMODE", "disable")
+		/*
+			host := getEnvOrDefault("DB_HOST", "localhost")
+			port := getEnvOrDefault("DB_PORT", "5432")
+			user := getEnvOrDefault("DB_USER", "postgres")
+			password := getEnvOrDefault("DB_PASSWORD", "password")
+			dbname := getEnvOrDefault("DB_NAME", "books_db")
+			sslmode := getEnvOrDefault("DB_SSLMODE", "disable")
+		*/
+		// 直接從環境變數讀取，不設置預設值
+		host := os.Getenv("DB_HOST")
+		port := os.Getenv("DB_PORT")
+		user := os.Getenv("DB_USER")
+		password := os.Getenv("DB_PASSWORD")
+		dbname := os.Getenv("DB_NAME")
+		sslmode := os.Getenv("DB_SSLMODE")
 
+		// 檢查必要的環境變數
+		if host == "" || port == "" || user == "" || password == "" || dbname == "" {
+			return nil, fmt.Errorf("missing required database environment variables")
+		}
+
+		if sslmode == "" {
+			sslmode = "disable" // 只有這個可以有預設值
+		}
 		dsn = fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
 			host, port, user, password, dbname, sslmode)
 	}
