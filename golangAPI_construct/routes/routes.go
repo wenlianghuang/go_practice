@@ -7,14 +7,15 @@ import (
 	"golangAPI_construct/logging"
 	"golangAPI_construct/middleware"
 	"golangAPI_construct/services"
+	"net/http"
 	"os"
 
-	"github.com/gin-gonic/gin"
+	"github.com/go-chi/chi/v5"
 )
 
 // test git rebase.
-func SetupRoutes() *gin.Engine {
-	r := gin.New()
+func SetupRoutes() http.Handler {
+	r := chi.NewRouter()
 
 	// 設置全局中間件
 	r.Use(
@@ -22,7 +23,7 @@ func SetupRoutes() *gin.Engine {
 		middleware.ErrorHandler(),
 		middleware.Logger(),
 		middleware.CORS(),
-		gin.Recovery(),
+		middleware.Recoverer(),
 	)
 
 	// 決定使用記憶體或資料庫實作
@@ -48,30 +49,28 @@ func SetupRoutes() *gin.Engine {
 	logging.Logger.Printf("[BOOT] Books count at start: %d", len(bookService.GetAllBooks()))
 
 	// 健康檢查端點（不需要認證）
-	r.GET("/api/health", bookHandler.HealthCheck)
+	r.Get("/api/health", bookHandler.HealthCheck)
 
 	// API v1 路由組
-	v1 := r.Group("/api/v1")
-	{
+	r.Route("/api/v1", func(r chi.Router) {
 		// 認證相關路由（不需要 JWT 驗證）
-		auth := v1.Group("/auth")
-		{
-			auth.POST("/login", handlers.Login)
-			auth.POST("/logout", middleware.JWTAuthMiddleware(), handlers.Logout)
-			auth.POST("/refresh", middleware.JWTAuthMiddleware(), handlers.RefreshToken)
-		}
+		r.Route("/auth", func(r chi.Router) {
+			r.Post("/login", handlers.Login)
+			r.With(middleware.JWTAuthMiddleware()).Post("/logout", handlers.Logout)
+			r.With(middleware.JWTAuthMiddleware()).Post("/refresh", handlers.RefreshToken)
+		})
 
 		// 受保護的書籍路由（需要 JWT 驗證）
-		books := v1.Group("/books", middleware.JWTAuthMiddleware())
-		{
-			books.GET("", bookHandler.GetBooks)
-			books.POST("", bookHandler.CreateBook)
-			books.GET("/:id", bookHandler.GetBookByID)
-			books.PUT("/:id", bookHandler.UpdateBook)
-			books.PATCH("/:id", bookHandler.PatchBook)
-			books.DELETE("/:id", bookHandler.DeleteBook)
-		}
-	}
+		r.Route("/books", func(r chi.Router) {
+			r.Use(middleware.JWTAuthMiddleware())
+			r.Get("/", bookHandler.GetBooks)
+			r.Post("/", bookHandler.CreateBook)
+			r.Get("/{id}", bookHandler.GetBookByID)
+			r.Put("/{id}", bookHandler.UpdateBook)
+			r.Patch("/{id}", bookHandler.PatchBook)
+			r.Delete("/{id}", bookHandler.DeleteBook)
+		})
+	})
 
 	return r
 }

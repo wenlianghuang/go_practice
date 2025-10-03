@@ -4,36 +4,36 @@ import (
 	"net/http"
 
 	"golangAPI_construct/config"
-
-	"github.com/gin-gonic/gin"
 )
 
 // CORS now uses config.LoadCORSOrigins() to build whitelist.
-func CORS() gin.HandlerFunc {
+func CORS() func(http.Handler) http.Handler {
 	allowOrigins := config.LoadCORSOrigins()
-	return func(c *gin.Context) {
-		origin := c.GetHeader("Origin")
-		allowed := false
-		if len(allowOrigins) > 0 {
-			for _, o := range allowOrigins {
-				if o == origin {
-					allowed = true
-					break
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			origin := r.Header.Get("Origin")
+			allowed := false
+			if len(allowOrigins) > 0 {
+				for _, o := range allowOrigins {
+					if o == origin {
+						allowed = true
+						break
+					}
 				}
 			}
-		}
-		if allowed {
-			c.Header("Access-Control-Allow-Origin", origin)
-			c.Header("Vary", "Origin")
-			c.Header("Access-Control-Allow-Credentials", "true")
-			c.Header("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Requested-With")
-			c.Header("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS")
-			c.Header("Access-Control-Max-Age", "600")
-		}
-		if c.Request.Method == http.MethodOptions {
-			c.AbortWithStatus(http.StatusNoContent)
-			return
-		}
-		c.Next()
+			if allowed {
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+				w.Header().Set("Vary", "Origin")
+				w.Header().Set("Access-Control-Allow-Credentials", "true")
+				w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Requested-With")
+				w.Header().Set("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS")
+				w.Header().Set("Access-Control-Max-Age", "600")
+			}
+			if r.Method == http.MethodOptions {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
 	}
 }

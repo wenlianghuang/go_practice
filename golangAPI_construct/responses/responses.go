@@ -1,9 +1,8 @@
 package responses
 
 import (
+	"encoding/json"
 	"net/http"
-
-	"github.com/gin-gonic/gin"
 )
 
 type AppError struct {
@@ -33,24 +32,49 @@ type errorEnvelope struct {
 }
 
 // Success sends standardized success response.
-func Success(c *gin.Context, status int, data interface{}) {
-	reqID := c.GetString("request_id")
-	c.JSON(status, successEnvelope{
+func Success(w http.ResponseWriter, r *http.Request, status int, data interface{}) {
+	reqID := r.Context().Value("request_id")
+	var reqIDStr string
+	if reqID != nil {
+		reqIDStr = reqID.(string)
+	} else {
+		reqIDStr = r.Header.Get("X-Request-ID")
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+
+	response := successEnvelope{
 		Success:   true,
 		Data:      data,
-		RequestID: reqID,
-	})
+		RequestID: reqIDStr,
+	}
+
+	json.NewEncoder(w).Encode(response)
 }
 
 // Fail sends standardized error response.
-func Fail(c *gin.Context, appErr *AppError) {
+func Fail(w http.ResponseWriter, r *http.Request, appErr *AppError) {
 	if appErr == nil {
 		appErr = NewAppError(http.StatusInternalServerError, "INTERNAL_ERROR", "internal server error")
 	}
-	reqID := c.GetString("request_id")
-	c.JSON(appErr.Status, errorEnvelope{
+
+	reqID := r.Context().Value("request_id")
+	var reqIDStr string
+	if reqID != nil {
+		reqIDStr = reqID.(string)
+	} else {
+		reqIDStr = r.Header.Get("X-Request-ID")
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(appErr.Status)
+
+	response := errorEnvelope{
 		Success:   false,
 		Error:     appErr,
-		RequestID: reqID,
-	})
+		RequestID: reqIDStr,
+	}
+
+	json.NewEncoder(w).Encode(response)
 }
