@@ -15,15 +15,17 @@ import (
 // test git rebase.
 func SetupRoutes() *gin.Engine {
 	r := gin.New()
-	// set up global middleware
+
+	// 設置全局中間件
 	r.Use(
 		middleware.RequestID(),
 		middleware.ErrorHandler(),
 		middleware.Logger(),
-		middleware.CORS(), // Assuming CORS middleware is defined elsewhere
+		middleware.CORS(),
 		gin.Recovery(),
 	)
-	// 決定使用記憶體會資料庫實作
+
+	// 決定使用記憶體或資料庫實作
 	var bookService services.BookServiceInterface
 	if os.Getenv("USE_DB") == "true" {
 		db, err := data.Open()
@@ -33,28 +35,33 @@ func SetupRoutes() *gin.Engine {
 		if err := data.Migrate(context.Background(), db); err != nil {
 			panic(err)
 		}
-		// link to the book_db.go
 		bookService = services.NewBookServiceDB(db)
+		logging.Logger.Print("[BOOT] Book service: database mode")
 	} else {
-		// link to the book.go
 		bookService = services.NewBookService()
 		logging.Logger.Print("[BOOT] Book service: in-memory mode")
 	}
 
-	//bookService := services.NewBookService()
 	bookHandler := handlers.NewBookHandler(bookService)
 
-	// 啟動時印出目前資料筆數，方便確認來源是否為 DB
-	//log.Printf("[BOOT] Books count at start: %d", bookService.GetBooksCount())
+	// 啟動時印出目前資料筆數
 	logging.Logger.Printf("[BOOT] Books count at start: %d", len(bookService.GetAllBooks()))
 
+	// 健康檢查端點（不需要認證）
 	r.GET("/api/health", bookHandler.HealthCheck)
-	// v1 group with JWT middleware => verify token for all /api/v1/books routes
+
+	// API v1 路由組
 	v1 := r.Group("/api/v1")
 	{
-		v1.POST("/login", handlers.Login)
+		// 認證相關路由（不需要 JWT 驗證）
+		auth := v1.Group("/auth")
+		{
+			auth.POST("/login", handlers.Login)
+			auth.POST("/logout", middleware.JWTAuthMiddleware(), handlers.Logout)
+			auth.POST("/refresh", middleware.JWTAuthMiddleware(), handlers.RefreshToken)
+		}
 
-		// Protected book routes
+		// 受保護的書籍路由（需要 JWT 驗證）
 		books := v1.Group("/books", middleware.JWTAuthMiddleware())
 		{
 			books.GET("", bookHandler.GetBooks)
@@ -65,5 +72,6 @@ func SetupRoutes() *gin.Engine {
 			books.DELETE("/:id", bookHandler.DeleteBook)
 		}
 	}
+
 	return r
 }
