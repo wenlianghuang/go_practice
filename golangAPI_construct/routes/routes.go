@@ -62,12 +62,24 @@ func SetupRoutes() http.Handler {
 
 		// 受保護的書籍路由（需要 JWT 驗證）
 		r.Route("/books", func(r chi.Router) {
+			// 所有書籍相關路由都需要 JWT 認證
 			r.Use(middleware.JWTAuthMiddleware())
+
+			// GET 路由不需要驗證請求體，所以不使用 RequestValidator
 			r.Get("/", bookHandler.GetBooks)
-			r.With(middleware.RequestValidator(middleware.BookValidationRules)).Post("/", bookHandler.CreateBook)
 			r.Get("/{id}", bookHandler.GetBookByID)
+
+			// POST 路由：創建新書籍，需要驗證請求體數據
+			// 使用 BookValidationRules 確保 title, author, price 欄位符合要求
+			r.With(middleware.RequestValidator(middleware.BookValidationRules)).Post("/", bookHandler.CreateBook)
+
+			// PUT 路由：完整更新書籍，需要驗證請求體數據
 			r.With(middleware.RequestValidator(middleware.BookValidationRules)).Put("/{id}", bookHandler.UpdateBook)
+
+			// PATCH 路由：部分更新書籍，需要驗證請求體數據
 			r.With(middleware.RequestValidator(middleware.BookValidationRules)).Patch("/{id}", bookHandler.PatchBook)
+
+			// DELETE 路由不需要驗證請求體
 			r.Delete("/{id}", bookHandler.DeleteBook)
 		})
 	})

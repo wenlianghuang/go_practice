@@ -41,27 +41,36 @@ func (h *BookHandler) GetBooks(w http.ResponseWriter, r *http.Request) {
 }
 
 // CreateBook creates a new book with validation middleware.
+// 這個函數現在依賴於 RequestValidator 中間件來驗證請求數據
+// 驗證後的數據會存儲在 request context 中，我們可以直接使用
 func (h *BookHandler) CreateBook(w http.ResponseWriter, r *http.Request) {
 	// 從 context 中獲取已驗證的數據
+	// RequestValidator 中間件會將驗證後的 JSON 數據存儲在這裡
 	validatedData, ok := r.Context().Value("validated_data").(map[string]interface{})
 	if !ok {
+		// 如果沒有找到驗證後的數據，說明中間件沒有正確執行
+		// 這通常不應該發生，但為了安全起見我們還是要檢查
 		responses.Fail(w, r, responses.NewAppError(http.StatusInternalServerError, "VALIDATION_ERROR", "Failed to get validated data"))
 		return
 	}
 
-	// 從驗證後的數據創建書籍
+	// 從驗證後的數據創建書籍對象
+	// 由於數據已經通過驗證，我們可以安全地進行類型斷言
+	// 驗證規則確保了這些欄位存在且類型正確
 	newBook := models.Book{
-		Title:  validatedData["title"].(string),
-		Author: validatedData["author"].(string),
-		Price:  validatedData["price"].(float64),
+		Title:  validatedData["title"].(string),  // 已驗證：非空字串，長度 1-200
+		Author: validatedData["author"].(string), // 已驗證：非空字串，長度 1-100
+		Price:  validatedData["price"].(float64), // 已驗證：數字，範圍 0-10000
 	}
 
+	// 調用服務層創建書籍
 	book, err := h.service.CreateBook(newBook)
 	if err != nil {
 		responses.Fail(w, r, responses.NewAppError(http.StatusInternalServerError, "CREATE_FAILED", err.Error()))
 		return
 	}
 
+	// 返回成功響應
 	responses.Success(w, r, http.StatusCreated, book)
 }
 
