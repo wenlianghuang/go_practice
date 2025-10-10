@@ -40,16 +40,20 @@ func (h *BookHandler) GetBooks(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// CreateBook creates a new book with basic validation.
+// CreateBook creates a new book with validation middleware.
 func (h *BookHandler) CreateBook(w http.ResponseWriter, r *http.Request) {
-	var newBook models.Book
-	if err := json.NewDecoder(r.Body).Decode(&newBook); err != nil {
-		responses.Fail(w, r, responses.NewAppError(http.StatusBadRequest, "INVALID_JSON", "invalid request body"))
+	// 從 context 中獲取已驗證的數據
+	validatedData, ok := r.Context().Value("validated_data").(map[string]interface{})
+	if !ok {
+		responses.Fail(w, r, responses.NewAppError(http.StatusInternalServerError, "VALIDATION_ERROR", "Failed to get validated data"))
 		return
 	}
-	if newBook.Title == "" || newBook.Author == "" || newBook.Price < 0 {
-		responses.Fail(w, r, responses.NewAppError(http.StatusBadRequest, "INVALID_FIELDS", "title, author required; price must be >= 0"))
-		return
+
+	// 從驗證後的數據創建書籍
+	newBook := models.Book{
+		Title:  validatedData["title"].(string),
+		Author: validatedData["author"].(string),
+		Price:  validatedData["price"].(float64),
 	}
 
 	book, err := h.service.CreateBook(newBook)
