@@ -20,10 +20,10 @@ func SetupRoutes() http.Handler {
 	// 設置全局中間件
 	r.Use(
 		middleware.RequestID(),
-		middleware.ErrorHandler(),
+		middleware.ErrorHandler(), // 包含 panic recovery 和統一錯誤處理
 		middleware.Logger(),
 		middleware.CORS(),
-		middleware.Recoverer(),
+		// middleware.Recoverer(), // 移除：與 ErrorHandler 重複
 	)
 
 	// 決定使用記憶體或資料庫實作
@@ -64,10 +64,10 @@ func SetupRoutes() http.Handler {
 		r.Route("/books", func(r chi.Router) {
 			r.Use(middleware.JWTAuthMiddleware())
 			r.Get("/", bookHandler.GetBooks)
-			r.Post("/", bookHandler.CreateBook)
+			r.With(middleware.RequestValidator(middleware.BookValidationRules)).Post("/", bookHandler.CreateBook)
 			r.Get("/{id}", bookHandler.GetBookByID)
-			r.Put("/{id}", bookHandler.UpdateBook)
-			r.Patch("/{id}", bookHandler.PatchBook)
+			r.With(middleware.RequestValidator(middleware.BookValidationRules)).Put("/{id}", bookHandler.UpdateBook)
+			r.With(middleware.RequestValidator(middleware.BookValidationRules)).Patch("/{id}", bookHandler.PatchBook)
 			r.Delete("/{id}", bookHandler.DeleteBook)
 		})
 	})
