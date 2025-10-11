@@ -28,18 +28,38 @@ func SetupRoutes() http.Handler {
 		// middleware.Recoverer(), // 移除：與 ErrorHandler 重複
 	)
 
-	// 決定使用記憶體或資料庫實作
+	// 決定使用記憶體、原生 SQL 或 GORM 實作
 	var bookService services.BookServiceInterface
 	if os.Getenv("USE_DB") == "true" {
-		db, err := data.Open()
-		if err != nil {
-			panic(err)
+		if os.Getenv("USE_GORM") == "true" {
+			// 使用 GORM
+			gormDB, err := data.OpenGORM()
+			if err != nil {
+				panic(err)
+			}
+			if err := data.MigrateGORM(gormDB); err != nil {
+				panic(err)
+			}
+			if err := data.SeedGORM(gormDB); err != nil {
+				logging.Logger.Printf("[GORM] Warning: failed to seed database: %v", err)
+			}
+			if err := data.CreateGORMIndexes(gormDB); err != nil {
+				logging.Logger.Printf("[GORM] Warning: failed to create indexes: %v", err)
+			}
+			bookService = services.NewBookServiceGORM(gormDB)
+			logging.Logger.Print("[BOOT] Book service: GORM database mode")
+		} else {
+			// 使用原生 SQL
+			db, err := data.Open()
+			if err != nil {
+				panic(err)
+			}
+			if err := data.Migrate(context.Background(), db); err != nil {
+				panic(err)
+			}
+			bookService = services.NewBookServiceDB(db)
+			logging.Logger.Print("[BOOT] Book service: native SQL database mode")
 		}
-		if err := data.Migrate(context.Background(), db); err != nil {
-			panic(err)
-		}
-		bookService = services.NewBookServiceDB(db)
-		logging.Logger.Print("[BOOT] Book service: database mode")
 	} else {
 		bookService = services.NewBookService()
 		logging.Logger.Print("[BOOT] Book service: in-memory mode")
@@ -57,6 +77,14 @@ func SetupRoutes() http.Handler {
 
 	bookHandler := handlers.NewBookHandler(bookService)
 	metricsHandler := handlers.NewMetricsHandler()
+
+	// 如果使用 GORM，創建 GORM 專用處理器
+	var gormHandler *handlers.GORMHandler
+	if os.Getenv("USE_GORM") == "true" {
+		if gormService, ok := bookService.(*services.BookServiceGORM); ok {
+			gormHandler = handlers.NewGORMHandler(gormService)
+		}
+	}
 
 	// 啟動時印出目前資料筆數
 	logging.Logger.Printf("[BOOT] Books count at start: %d", len(bookService.GetAllBooks()))
@@ -117,6 +145,31 @@ func SetupRoutes() http.Handler {
 				r.Delete("/{id}", bookHandler.DeleteBook)
 			}
 		})
+
+		// GORM 專用路由（需要認證）
+		if gormHandler != nil {
+			r.Route("/gorm", func(r chi.Router) {
+				r.Use(middleware.JWTAuthMiddleware())
+
+				// 搜索和統計功能
+				r.Get("/search", gormHandler.SearchBooks)
+				r.Get("/statistics", gormHandler.GetBookStatistics)
+				r.Get("/author-statistics", gormHandler.GetAuthorStatistics)
+				r.Get("/database-health", gormHandler.GetDatabaseHealth)
+
+				// 分類和篩選功能
+				r.Get("/category/{category}", gormHandler.GetBooksByCategory)
+				r.Get("/price-range", gormHandler.GetBooksByPriceRange)
+				r.Get("/published/{year}", gormHandler.GetBooksByPublishedYear)
+				r.Get("/top-rated", gormHandler.GetTopRatedBooks)
+				r.Get("/recent", gormHandler.GetRecentBooks)
+				r.Get("/with-reviews", gormHandler.GetBooksWithReviews)
+
+				// 分頁和批量操作
+				r.Get("/paginated", gormHandler.GetBooksWithPagination)
+				r.Get("/by-authors", gormHandler.GetBooksByMultipleAuthors)
+			})
+		}
 	})
 
 	return r
