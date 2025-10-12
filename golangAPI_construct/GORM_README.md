@@ -336,17 +336,24 @@ GORM_LOG_LEVEL=info  # silent, error, warn, info
 # 下載依賴
 go mod tidy
 
-# 啟動應用
+# 啟動應用（必須設置數據庫環境變數）
 go run main.go
 ```
 
+**重要**：此應用現在**強制使用數據庫模式**，必須設置 `USE_DB=true` 和 `USE_GORM=true`。
+
 你應該會看到類似這樣的輸出：
 ```
-[BOOT] Book service: GORM database mode
+[BOOT] Book service: GORM database mode (production ready)
 [GORM] Connected to PostgreSQL successfully
 [GORM] Starting database migration...
 [GORM] Database migration completed successfully
 [BOOT] listening on :8080
+```
+
+如果沒有設置必要的環境變數，應用會立即退出並顯示錯誤：
+```
+[BOOT] ERROR: This application requires database mode. Please set USE_DB=true and USE_GORM=true
 ```
 
 ## 🗄️ 數據庫結構說明
@@ -784,20 +791,34 @@ curl http://localhost:8080/metrics
 curl http://localhost:8080/api/metrics/detailed
 ```
 
-## 📊 與原生 SQL 的比較
+## 🏗️ 生產環境架構
 
-| 功能特性 | 原生 SQL | GORM | 說明 |
-|---------|----------|------|------|
-| **代碼量** | 多 | 少 | GORM 減少 70% 代碼量 |
-| **類型安全** | 低 | 高 | 編譯時檢查，減少運行時錯誤 |
-| **自動遷移** | 無 | 有 | 模型變更自動同步到數據庫 |
-| **關聯查詢** | 手動 | 自動 | 自動處理表關係 |
-| **軟刪除** | 手動 | 自動 | 數據不會真正刪除 |
-| **時間戳** | 手動 | 自動 | CreatedAt、UpdatedAt 自動管理 |
-| **查詢構建** | 手動 | 自動 | 鏈式查詢構建器 |
-| **性能** | 高 | 高 | 優化後性能相當 |
-| **學習曲線** | 陡峭 | 平緩 | GORM 更容易上手 |
-| **維護性** | 低 | 高 | 代碼更易維護和擴展 |
+### 強制數據庫模式
+此應用現在**專為生產環境設計**，強制使用 GORM + PostgreSQL：
+
+- ✅ **數據持久化**：所有數據都存儲在 PostgreSQL 中
+- ✅ **高級搜索**：支持複雜查詢、相關性評分、多條件篩選
+- ✅ **關聯查詢**：自動處理表關係和預載入
+- ✅ **軟刪除**：數據安全，支持恢復
+- ✅ **自動遷移**：數據庫結構自動同步
+- ✅ **緩存整合**：與 Redis 緩存完美配合
+- ✅ **監控指標**：內建 Prometheus 指標收集
+
+### 與傳統方案的比較
+
+| 功能特性 | 傳統 SQL | 內存模式 | GORM 生產模式 |
+|---------|----------|----------|---------------|
+| **數據持久化** | ✅ | ❌ | ✅ |
+| **生產就緒** | ✅ | ❌ | ✅ |
+| **代碼量** | 多 | 少 | 少 |
+| **類型安全** | 低 | 中 | 高 |
+| **自動遷移** | 無 | 無 | ✅ |
+| **關聯查詢** | 手動 | 無 | 自動 |
+| **軟刪除** | 手動 | 無 | 自動 |
+| **時間戳** | 手動 | 無 | 自動 |
+| **高級搜索** | 複雜 | 無 | ✅ |
+| **緩存整合** | 手動 | 無 | 自動 |
+| **監控指標** | 手動 | 無 | 自動 |
 
 ## 🎯 總結
 

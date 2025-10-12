@@ -11,6 +11,24 @@ import (
 	"gorm.io/gorm"
 )
 
+var (
+	// 統一錯誤
+	ErrBookNotFound = errors.New("book not found")
+)
+
+// BookServiceInterface 書籍服務接口
+// 定義所有書籍相關操作的標準接口
+type BookServiceInterface interface {
+	GetAllBooks() []models.Book
+	GetBooksByAuthor(author string) []models.Book
+	GetBookByID(id string) (*models.Book, error)
+	CreateBook(book models.Book) (*models.Book, error)
+	UpdateBook(id string, book models.Book) (*models.Book, error)
+	PatchBook(id string, patch models.BookPatch) (*models.Book, error)
+	DeleteBook(id string) (*models.Book, error)
+	GetBooksCount() int
+}
+
 // BookServiceGORM GORM 版本的書籍服務
 // 提供更強大的數據庫操作功能，包括關聯查詢、統計和搜索
 type BookServiceGORM struct {
