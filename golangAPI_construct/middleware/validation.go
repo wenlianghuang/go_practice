@@ -289,3 +289,22 @@ var (
 		},
 	}
 )
+
+// BookPatchValidationRules PATCH 請求的驗證規則
+// 所有欄位都是可選的，只驗證提供的欄位
+var BookPatchValidationRules = ValidationConfig{
+	Rules: []ValidationRule{
+		// 書名：可選，字串類型，長度 1-200 字元
+		{Field: "title", Required: false, Type: "string", MinLen: 1, MaxLen: 200},
+		// 作者：可選，字串類型，長度 1-100 字元
+		{Field: "author", Required: false, Type: "string", MinLen: 1, MaxLen: 100},
+		// 價格：可選，數字類型，範圍 0-10000
+		{Field: "price", Required: false, Type: "number", Min: 0, Max: 10000},
+		// ISBN：可選，字串類型，長度 0-20 字元
+		{Field: "isbn", Required: false, Type: "string", MinLen: 0, MaxLen: 20},
+		// 分類：可選，字串類型，長度 0-100 字元
+		{Field: "category", Required: false, Type: "string", MinLen: 0, MaxLen: 100},
+		// 出版日期：可選，ISO 8601 格式字串
+		{Field: "published", Required: false, Type: "string"},
+	},
+}
