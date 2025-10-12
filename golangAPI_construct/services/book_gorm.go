@@ -242,10 +242,13 @@ func (s *BookServiceGORM) UpdateBook(id string, book models.Book) (*models.Book,
 		return nil, err
 	}
 
-	// 更新欄位
+	// 更新所有欄位
 	bookGORM.Title = book.Title
 	bookGORM.Author = book.Author
 	bookGORM.Price = book.Price
+	bookGORM.ISBN = book.ISBN
+	bookGORM.Category = book.Category
+	bookGORM.Published = book.Published
 
 	if err := s.db.Save(&bookGORM).Error; err != nil {
 		return nil, err
@@ -280,6 +283,15 @@ func (s *BookServiceGORM) PatchBook(id string, patch models.BookPatch) (*models.
 	if patch.Price != nil {
 		bookGORM.Price = *patch.Price
 	}
+	if patch.ISBN != nil {
+		bookGORM.ISBN = *patch.ISBN
+	}
+	if patch.Category != nil {
+		bookGORM.Category = *patch.Category
+	}
+	if patch.Published != nil {
+		bookGORM.Published = patch.Published
+	}
 
 	if err := s.db.Save(&bookGORM).Error; err != nil {
 		return nil, err
@@ -308,6 +320,80 @@ func (s *BookServiceGORM) DeleteBook(id string) (*models.Book, error) {
 
 	// 軟刪除
 	if err := s.db.Delete(&bookGORM).Error; err != nil {
+		return nil, err
+	}
+
+	return &book, nil
+}
+
+// DeleteBookPermanently 永久刪除書籍（硬刪除）
+// 這個方法會真正從數據庫中移除記錄，無法恢復
+func (s *BookServiceGORM) DeleteBookPermanently(id string) (*models.Book, error) {
+	idUint, err := strconv.ParseUint(id, 10, 32)
+	if err != nil {
+		return nil, ErrBookNotFound
+	}
+
+	var bookGORM models.BookGORM
+	if err := s.db.First(&bookGORM, uint(idUint)).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrBookNotFound
+		}
+		return nil, err
+	}
+
+	book := bookGORM.ToBook()
+
+	// 硬刪除：使用 Unscoped().Delete() 繞過軟刪除
+	if err := s.db.Unscoped().Delete(&bookGORM).Error; err != nil {
+		return nil, err
+	}
+
+	return &book, nil
+}
+
+// DeleteBookWithCascade 級聯硬刪除（刪除書籍及其相關記錄）
+// 這個方法會刪除書籍以及所有相關的評論記錄
+func (s *BookServiceGORM) DeleteBookWithCascade(id string) (*models.Book, error) {
+	idUint, err := strconv.ParseUint(id, 10, 32)
+	if err != nil {
+		return nil, ErrBookNotFound
+	}
+
+	var bookGORM models.BookGORM
+	if err := s.db.Preload("Reviews").First(&bookGORM, uint(idUint)).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrBookNotFound
+		}
+		return nil, err
+	}
+
+	book := bookGORM.ToBook()
+
+	// 開始事務
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// 先刪除相關的評論
+	if len(bookGORM.Reviews) > 0 {
+		if err := tx.Unscoped().Where("book_id = ?", bookGORM.ID).Delete(&models.ReviewGORM{}).Error; err != nil {
+			tx.Rollback()
+			return nil, err
+		}
+	}
+
+	// 再刪除書籍本身
+	if err := tx.Unscoped().Delete(&bookGORM).Error; err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
+	// 提交事務
+	if err := tx.Commit().Error; err != nil {
 		return nil, err
 	}
 

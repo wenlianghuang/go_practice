@@ -33,10 +33,15 @@ func (BookGORM) TableName() string {
 // ToBook 轉換為原始的 Book 模型（用於向後兼容）
 func (b *BookGORM) ToBook() Book {
 	return Book{
-		ID:     string(rune(b.ID)),
-		Title:  b.Title,
-		Author: b.Author,
-		Price:  b.Price,
+		ID:        string(rune(b.ID)),
+		Title:     b.Title,
+		Author:    b.Author,
+		Price:     b.Price,
+		ISBN:      b.ISBN,
+		Category:  b.Category,
+		Published: b.Published,
+		CreatedAt: b.CreatedAt,
+		UpdatedAt: b.UpdatedAt,
 	}
 }
 
@@ -45,6 +50,9 @@ func (b *BookGORM) FromBook(book Book) {
 	b.Title = book.Title
 	b.Author = book.Author
 	b.Price = book.Price
+	b.ISBN = book.ISBN
+	b.Category = book.Category
+	b.Published = book.Published
 }
 
 // BookPatchGORM GORM 版本的書籍部分更新模型

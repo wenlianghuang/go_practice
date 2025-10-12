@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"encoding/json"
 	"net/http"
 	"time"
 
@@ -63,6 +62,19 @@ func (h *BookHandler) CreateBook(w http.ResponseWriter, r *http.Request) {
 		Price:  validatedData["price"].(float64), // 已驗證：數字，範圍 0-10000
 	}
 
+	// 處理可選欄位
+	if isbn, ok := validatedData["isbn"].(string); ok && isbn != "" {
+		newBook.ISBN = isbn
+	}
+	if category, ok := validatedData["category"].(string); ok && category != "" {
+		newBook.Category = category
+	}
+	if publishedStr, ok := validatedData["published"].(string); ok && publishedStr != "" {
+		if published, err := time.Parse(time.RFC3339, publishedStr); err == nil {
+			newBook.Published = &published
+		}
+	}
+
 	// 調用服務層創建書籍
 	book, err := h.service.CreateBook(newBook)
 	if err != nil {
@@ -88,45 +100,91 @@ func (h *BookHandler) GetBookByID(w http.ResponseWriter, r *http.Request) {
 // UpdateBook replaces an existing book.
 func (h *BookHandler) UpdateBook(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	var updatedBook models.Book
-	if err := json.NewDecoder(r.Body).Decode(&updatedBook); err != nil {
-		responses.Fail(w, r, responses.NewAppError(http.StatusBadRequest, "INVALID_JSON", "invalid request body"))
-		return
-	}
-	if updatedBook.Title == "" || updatedBook.Author == "" || updatedBook.Price < 0 {
-		responses.Fail(w, r, responses.NewAppError(http.StatusBadRequest, "INVALID_FIELDS", "title, author required; price must be >= 0"))
+
+	validatedData, ok := r.Context().Value("validated_data").(map[string]interface{})
+	if !ok {
+		responses.Fail(w, r, responses.NewAppError(http.StatusInternalServerError, "VALIDATION_ERROR", "Failed to get validated data"))
 		return
 	}
 
-	book, err := h.service.UpdateBook(id, updatedBook)
+	// 創建完整的書籍對象
+	book := models.Book{
+		Title:  validatedData["title"].(string),
+		Author: validatedData["author"].(string),
+		Price:  validatedData["price"].(float64),
+	}
+
+	// 處理可選欄位
+	if isbn, ok := validatedData["isbn"].(string); ok && isbn != "" {
+		book.ISBN = isbn
+	}
+	if category, ok := validatedData["category"].(string); ok && category != "" {
+		book.Category = category
+	}
+	if publishedStr, ok := validatedData["published"].(string); ok && publishedStr != "" {
+		if published, err := time.Parse(time.RFC3339, publishedStr); err == nil {
+			book.Published = &published
+		}
+	}
+
+	updatedBook, err := h.service.UpdateBook(id, book)
 	if err != nil {
-		responses.Fail(w, r, responses.NewAppError(http.StatusNotFound, "NOT_FOUND", err.Error()))
+		if err == services.ErrBookNotFound {
+			responses.Fail(w, r, responses.NewAppError(http.StatusNotFound, "BOOK_NOT_FOUND", "Book not found"))
+			return
+		}
+		responses.Fail(w, r, responses.NewAppError(http.StatusInternalServerError, "UPDATE_FAILED", err.Error()))
 		return
 	}
 
-	responses.Success(w, r, http.StatusOK, book)
+	responses.Success(w, r, http.StatusOK, updatedBook)
 }
 
 // PatchBook partially updates fields of a book.
 func (h *BookHandler) PatchBook(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	var patchData models.BookPatch
-	if err := json.NewDecoder(r.Body).Decode(&patchData); err != nil {
-		responses.Fail(w, r, responses.NewAppError(http.StatusBadRequest, "INVALID_JSON", "invalid request body"))
-		return
-	}
-	if patchData.Price != nil && *patchData.Price < 0 {
-		responses.Fail(w, r, responses.NewAppError(http.StatusBadRequest, "INVALID_FIELDS", "price must be >= 0"))
+
+	validatedData, ok := r.Context().Value("validated_data").(map[string]interface{})
+	if !ok {
+		responses.Fail(w, r, responses.NewAppError(http.StatusInternalServerError, "VALIDATION_ERROR", "Failed to get validated data"))
 		return
 	}
 
-	book, err := h.service.PatchBook(id, patchData)
+	// 創建部分更新對象
+	patch := models.BookPatch{}
+
+	if title, ok := validatedData["title"].(string); ok {
+		patch.Title = &title
+	}
+	if author, ok := validatedData["author"].(string); ok {
+		patch.Author = &author
+	}
+	if price, ok := validatedData["price"].(float64); ok {
+		patch.Price = &price
+	}
+	if isbn, ok := validatedData["isbn"].(string); ok {
+		patch.ISBN = &isbn
+	}
+	if category, ok := validatedData["category"].(string); ok {
+		patch.Category = &category
+	}
+	if publishedStr, ok := validatedData["published"].(string); ok && publishedStr != "" {
+		if published, err := time.Parse(time.RFC3339, publishedStr); err == nil {
+			patch.Published = &published
+		}
+	}
+
+	updatedBook, err := h.service.PatchBook(id, patch)
 	if err != nil {
-		responses.Fail(w, r, responses.NewAppError(http.StatusNotFound, "NOT_FOUND", err.Error()))
+		if err == services.ErrBookNotFound {
+			responses.Fail(w, r, responses.NewAppError(http.StatusNotFound, "BOOK_NOT_FOUND", "Book not found"))
+			return
+		}
+		responses.Fail(w, r, responses.NewAppError(http.StatusInternalServerError, "PATCH_FAILED", err.Error()))
 		return
 	}
 
-	responses.Success(w, r, http.StatusOK, book)
+	responses.Success(w, r, http.StatusOK, updatedBook)
 }
 
 // DeleteBook deletes a book.

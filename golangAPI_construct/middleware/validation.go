@@ -269,6 +269,12 @@ var (
 			{Field: "author", Required: true, Type: "string", MinLen: 1, MaxLen: 100},
 			// 價格：必填，數字類型，範圍 0-10000
 			{Field: "price", Required: true, Type: "number", Min: 0, Max: 10000},
+			// ISBN：可選，字串類型，長度 0-20 字元
+			{Field: "isbn", Required: false, Type: "string", MinLen: 0, MaxLen: 20},
+			// 分類：可選，字串類型，長度 0-100 字元
+			{Field: "category", Required: false, Type: "string", MinLen: 0, MaxLen: 100},
+			// 出版日期：可選，ISO 8601 格式字串
+			{Field: "published", Required: false, Type: "string"},
 		},
 	}
 

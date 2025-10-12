@@ -162,6 +162,10 @@ func SetupRoutes() http.Handler {
 			// 分頁和批量操作
 			r.Get("/paginated", gormHandler.GetBooksWithPagination)
 			r.Get("/by-authors", gormHandler.GetBooksByMultipleAuthors)
+
+			// 硬刪除功能（危險操作）
+			r.Delete("/books/{id}/permanent", gormHandler.DeleteBookPermanently) // 永久刪除書籍
+			r.Delete("/books/{id}/cascade", gormHandler.DeleteBookWithCascade)   // 級聯刪除書籍及相關記錄
 		})
 	})
 

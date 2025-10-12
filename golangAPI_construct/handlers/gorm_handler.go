@@ -454,3 +454,47 @@ func trimSpace(s string) string {
 
 	return s[start:end]
 }
+
+// DeleteBookPermanently 永久刪除書籍（硬刪除）
+// 這個端點會真正從數據庫中移除記錄，無法恢復
+func (h *GORMHandler) DeleteBookPermanently(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	book, err := h.gormService.DeleteBookPermanently(id)
+	if err != nil {
+		if err == services.ErrBookNotFound {
+			responses.Fail(w, r, responses.NewAppError(http.StatusNotFound, "BOOK_NOT_FOUND", "Book not found"))
+			return
+		}
+		responses.Fail(w, r, responses.NewAppError(http.StatusInternalServerError, "DELETE_FAILED", err.Error()))
+		return
+	}
+
+	responses.Success(w, r, http.StatusOK, map[string]interface{}{
+		"message": "Book permanently deleted from database",
+		"book":    book,
+		"warning": "This action cannot be undone",
+	})
+}
+
+// DeleteBookWithCascade 級聯硬刪除（刪除書籍及其相關記錄）
+// 這個端點會刪除書籍以及所有相關的評論記錄
+func (h *GORMHandler) DeleteBookWithCascade(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	book, err := h.gormService.DeleteBookWithCascade(id)
+	if err != nil {
+		if err == services.ErrBookNotFound {
+			responses.Fail(w, r, responses.NewAppError(http.StatusNotFound, "BOOK_NOT_FOUND", "Book not found"))
+			return
+		}
+		responses.Fail(w, r, responses.NewAppError(http.StatusInternalServerError, "DELETE_FAILED", err.Error()))
+		return
+	}
+
+	responses.Success(w, r, http.StatusOK, map[string]interface{}{
+		"message": "Book and all related records permanently deleted from database",
+		"book":    book,
+		"warning": "This action cannot be undone",
+	})
+}

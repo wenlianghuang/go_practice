@@ -460,6 +460,12 @@ PATCH /api/v1/books/{id}
 
 # 刪除書籍（軟刪除）
 DELETE /api/v1/books/{id}
+
+# 硬刪除書籍（永久刪除，無法恢復）
+DELETE /api/v1/gorm/books/{id}/permanent
+
+# 級聯硬刪除（刪除書籍及所有相關記錄）
+DELETE /api/v1/gorm/books/{id}/cascade
 ```
 
 ### 🚀 GORM 專用端點
@@ -523,6 +529,18 @@ GET /api/v1/gorm/paginated?page=1&page_size=10
 # 根據多個作者獲取書籍
 GET /api/v1/gorm/by-authors?authors=George Orwell,Aldous Huxley,Ray Bradbury
 ```
+
+#### ⚠️ 硬刪除功能（危險操作）
+```bash
+# 永久刪除書籍（從數據庫中完全移除，無法恢復）
+DELETE /api/v1/gorm/books/{id}/permanent
+# 回應：包含警告信息的確認消息
+
+# 級聯硬刪除（刪除書籍及所有相關的評論記錄）
+DELETE /api/v1/gorm/books/{id}/cascade
+# 回應：包含警告信息的確認消息
+
+# 注意：硬刪除操作無法撤銷，請謹慎使用！
 
 ## 🧪 完整測試範例
 
@@ -629,6 +647,40 @@ echo "=== 測試無效搜索 ==="
 curl -H "Authorization: Bearer $TOKEN" \
   "http://localhost:8080/api/v1/gorm/search?q="
 ```
+
+### 步驟 6：測試硬刪除功能（危險操作）
+```bash
+# ⚠️ 警告：以下操作會永久刪除數據，無法恢復！
+
+# 1. 先創建一個測試書籍
+echo "=== 創建測試書籍 ==="
+TEST_BOOK_ID=$(curl -s -X POST http://localhost:8080/api/v1/books \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{
+    "title": "測試書籍",
+    "author": "測試作者",
+    "price": 9.99,
+    "isbn": "TEST-123",
+    "category": "測試分類"
+  }' | jq -r '.data.id')
+
+echo "測試書籍 ID: $TEST_BOOK_ID"
+
+# 2. 軟刪除（可以恢復）
+echo "=== 軟刪除測試 ==="
+curl -X DELETE -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8080/api/v1/books/$TEST_BOOK_ID | jq
+
+# 3. 硬刪除（永久刪除）
+echo "=== 硬刪除測試 ==="
+curl -X DELETE -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8080/api/v1/gorm/books/$TEST_BOOK_ID/permanent | jq
+
+# 4. 級聯硬刪除（刪除書籍及相關記錄）
+echo "=== 級聯硬刪除測試 ==="
+curl -X DELETE -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8080/api/v1/gorm/books/$TEST_BOOK_ID/cascade | jq
 
 ## ⚡ 性能優勢與最佳實踐
 
