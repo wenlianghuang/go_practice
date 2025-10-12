@@ -1,7 +1,6 @@
 package routes
 
 import (
-	"context"
 	"golangAPI_construct/cache"
 	"golangAPI_construct/data"
 	"golangAPI_construct/handlers"
@@ -28,41 +27,30 @@ func SetupRoutes() http.Handler {
 		// middleware.Recoverer(), // 移除：與 ErrorHandler 重複
 	)
 
-	// 決定使用記憶體、原生 SQL 或 GORM 實作
+	// 決定使用記憶體或 GORM 實作（已移除傳統 SQL 選項）
 	var bookService services.BookServiceInterface
-	if os.Getenv("USE_DB") == "true" {
-		if os.Getenv("USE_GORM") == "true" {
-			// 使用 GORM
-			gormDB, err := data.OpenGORM()
-			if err != nil {
-				panic(err)
-			}
-			if err := data.MigrateGORM(gormDB); err != nil {
-				panic(err)
-			}
-			if err := data.SeedGORM(gormDB); err != nil {
-				logging.Logger.Printf("[GORM] Warning: failed to seed database: %v", err)
-			}
-			if err := data.CreateGORMIndexes(gormDB); err != nil {
-				logging.Logger.Printf("[GORM] Warning: failed to create indexes: %v", err)
-			}
-			bookService = services.NewBookServiceGORM(gormDB)
-			logging.Logger.Print("[BOOT] Book service: GORM database mode")
-		} else {
-			// 使用原生 SQL
-			db, err := data.Open()
-			if err != nil {
-				panic(err)
-			}
-			if err := data.Migrate(context.Background(), db); err != nil {
-				panic(err)
-			}
-			bookService = services.NewBookServiceDB(db)
-			logging.Logger.Print("[BOOT] Book service: native SQL database mode")
+	if os.Getenv("USE_DB") == "true" && os.Getenv("USE_GORM") == "true" {
+		// 使用 GORM（推薦的數據庫模式）
+		gormDB, err := data.OpenGORM()
+		if err != nil {
+			panic(err)
 		}
+		if err := data.MigrateGORM(gormDB); err != nil {
+			panic(err)
+		}
+		if err := data.SeedGORM(gormDB); err != nil {
+			logging.Logger.Printf("[GORM] Warning: failed to seed database: %v", err)
+		}
+		if err := data.CreateGORMIndexes(gormDB); err != nil {
+			logging.Logger.Printf("[GORM] Warning: failed to create indexes: %v", err)
+		}
+		bookService = services.NewBookServiceGORM(gormDB)
+		logging.Logger.Print("[BOOT] Book service: GORM database mode (enhanced search capabilities)")
 	} else {
+		// 使用內存模式（開發/測試用）
 		bookService = services.NewBookService()
 		logging.Logger.Print("[BOOT] Book service: in-memory mode")
+		logging.Logger.Print("[BOOT] Note: Set USE_DB=true and USE_GORM=true to enable database features")
 	}
 
 	// 初始化緩存服務
@@ -151,8 +139,9 @@ func SetupRoutes() http.Handler {
 			r.Route("/gorm", func(r chi.Router) {
 				r.Use(middleware.JWTAuthMiddleware())
 
-				// 搜索和統計功能
-				r.Get("/search", gormHandler.SearchBooks)
+				// 搜索和統計功能（增強版）
+				r.Get("/search", gormHandler.SearchBooks)                  // 增強版搜索，支持多條件篩選
+				r.Get("/search-advanced", gormHandler.SearchBooksAdvanced) // 高級搜索，支持複雜查詢
 				r.Get("/statistics", gormHandler.GetBookStatistics)
 				r.Get("/author-statistics", gormHandler.GetAuthorStatistics)
 				r.Get("/database-health", gormHandler.GetDatabaseHealth)

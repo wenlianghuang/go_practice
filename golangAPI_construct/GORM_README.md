@@ -457,11 +457,19 @@ DELETE /api/v1/books/{id}
 
 ### 🚀 GORM 專用端點
 
-#### 🔍 搜索和統計功能
+#### 🔍 搜索和統計功能（增強版）
 ```bash
-# 搜索書籍（支持標題、作者、ISBN）
+# 基礎搜索（支持標題、作者、ISBN、分類）
 GET /api/v1/gorm/search?q=1984
 # 回應：包含相關性評分的搜索結果
+
+# 增強版搜索（支持多條件篩選）
+GET /api/v1/gorm/search?q=orwell&min_price=5&max_price=20&category=Fiction&year=1949
+# 支援參數：q, min_price, max_price, category, year
+
+# 高級搜索（支持複雜查詢條件）
+GET /api/v1/gorm/search-advanced?title=1984&author=orwell&min_price=10&order_by=price_asc&limit=10
+# 支援參數：title, author, category, isbn, min_price, max_price, year, order_by, limit, offset
 
 # 獲取書籍統計信息
 GET /api/v1/gorm/statistics
@@ -548,22 +556,32 @@ curl -H "Authorization: Bearer $TOKEN" \
 
 ### 步驟 3：測試 GORM 高級功能
 ```bash
-# 1. 搜索功能
-echo "=== 搜索書籍 ==="
+# 1. 基礎搜索功能
+echo "=== 基礎搜索書籍 ==="
 curl -H "Authorization: Bearer $TOKEN" \
   "http://localhost:8080/api/v1/gorm/search?q=1984" | jq
 
-# 2. 統計信息
+# 2. 增強版搜索（多條件篩選）
+echo "=== 增強版搜索 ==="
+curl -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:8080/api/v1/gorm/search?q=orwell&min_price=5&max_price=20&category=Fiction" | jq
+
+# 3. 高級搜索（複雜查詢）
+echo "=== 高級搜索 ==="
+curl -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:8080/api/v1/gorm/search-advanced?title=1984&author=orwell&order_by=price_asc&limit=5" | jq
+
+# 4. 統計信息
 echo "=== 書籍統計 ==="
 curl -H "Authorization: Bearer $TOKEN" \
   http://localhost:8080/api/v1/gorm/statistics | jq
 
-# 3. 作者統計
+# 5. 作者統計
 echo "=== 作者統計 ==="
 curl -H "Authorization: Bearer $TOKEN" \
   http://localhost:8080/api/v1/gorm/author-statistics | jq
 
-# 4. 數據庫健康檢查
+# 6. 數據庫健康檢查
 echo "=== 數據庫健康檢查 ==="
 curl -H "Authorization: Bearer $TOKEN" \
   http://localhost:8080/api/v1/gorm/database-health | jq

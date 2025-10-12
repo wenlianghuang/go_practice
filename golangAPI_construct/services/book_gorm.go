@@ -40,7 +40,7 @@ func (s *BookServiceGORM) GetAllBooks() []models.Book {
 	return books
 }
 
-// GetBooksByAuthor 根據作者獲取書籍
+// GetBooksByAuthor 根據作者獲取書籍（增強版搜索）
 func (s *BookServiceGORM) GetBooksByAuthor(author string) []models.Book {
 	var booksGORM []models.BookGORM
 	if err := s.db.Where("author ILIKE ?", "%"+author+"%").Find(&booksGORM).Error; err != nil {
@@ -52,6 +52,129 @@ func (s *BookServiceGORM) GetBooksByAuthor(author string) []models.Book {
 		books[i] = bookGORM.ToBook()
 	}
 	return books
+}
+
+// SearchBooksAdvanced 高級搜索功能（取代傳統 DB searching）
+// 支持多欄位搜索、模糊匹配、排序等功能
+func (s *BookServiceGORM) SearchBooksAdvanced(query string, filters map[string]interface{}) ([]models.BookSearchResult, error) {
+	var results []models.BookSearchResult
+
+	// 構建基礎查詢
+	dbQuery := s.db.Model(&models.BookGORM{})
+
+	// 如果沒有查詢詞，返回所有書籍
+	if query == "" {
+		err := dbQuery.Find(&results).Error
+		return results, err
+	}
+
+	searchPattern := "%" + strings.ToLower(query) + "%"
+
+	// 構建搜索條件
+	searchConditions := []string{
+		"LOWER(title) LIKE ?",
+		"LOWER(author) LIKE ?",
+		"LOWER(isbn) LIKE ?",
+		"LOWER(category) LIKE ?",
+	}
+
+	searchArgs := []interface{}{
+		searchPattern, searchPattern, searchPattern, searchPattern,
+	}
+
+	// 添加額外的篩選條件
+	if filters != nil {
+		if minPrice, ok := filters["min_price"].(float64); ok {
+			dbQuery = dbQuery.Where("price >= ?", minPrice)
+		}
+		if maxPrice, ok := filters["max_price"].(float64); ok {
+			dbQuery = dbQuery.Where("price <= ?", maxPrice)
+		}
+		if category, ok := filters["category"].(string); ok && category != "" {
+			dbQuery = dbQuery.Where("category = ?", category)
+		}
+		if year, ok := filters["year"].(int); ok && year > 0 {
+			dbQuery = dbQuery.Where("EXTRACT(YEAR FROM published) = ?", year)
+		}
+	}
+
+	// 執行搜索查詢
+	err := dbQuery.
+		Select("*, CASE "+
+			"WHEN LOWER(title) LIKE ? THEN 4 "+
+			"WHEN LOWER(author) LIKE ? THEN 3 "+
+			"WHEN LOWER(isbn) LIKE ? THEN 2 "+
+			"WHEN LOWER(category) LIKE ? THEN 1 "+
+			"ELSE 0 END as relevance_score",
+			searchPattern, searchPattern, searchPattern, searchPattern).
+		Where(strings.Join(searchConditions, " OR "), searchArgs...).
+		Order("relevance_score DESC, title ASC").
+		Find(&results).Error
+
+	return results, err
+}
+
+// GetBooksByMultipleCriteria 多條件搜索（取代傳統 DB 的多個查詢方法）
+func (s *BookServiceGORM) GetBooksByMultipleCriteria(criteria map[string]interface{}) ([]models.BookGORM, error) {
+	var books []models.BookGORM
+
+	dbQuery := s.db.Model(&models.BookGORM{})
+
+	// 動態構建查詢條件
+	if title, ok := criteria["title"].(string); ok && title != "" {
+		dbQuery = dbQuery.Where("title ILIKE ?", "%"+title+"%")
+	}
+	if author, ok := criteria["author"].(string); ok && author != "" {
+		dbQuery = dbQuery.Where("author ILIKE ?", "%"+author+"%")
+	}
+	if category, ok := criteria["category"].(string); ok && category != "" {
+		dbQuery = dbQuery.Where("category = ?", category)
+	}
+	if minPrice, ok := criteria["min_price"].(float64); ok {
+		dbQuery = dbQuery.Where("price >= ?", minPrice)
+	}
+	if maxPrice, ok := criteria["max_price"].(float64); ok {
+		dbQuery = dbQuery.Where("price <= ?", maxPrice)
+	}
+	if year, ok := criteria["year"].(int); ok && year > 0 {
+		dbQuery = dbQuery.Where("EXTRACT(YEAR FROM published) = ?", year)
+	}
+	if isbn, ok := criteria["isbn"].(string); ok && isbn != "" {
+		dbQuery = dbQuery.Where("isbn = ?", isbn)
+	}
+
+	// 排序選項
+	if orderBy, ok := criteria["order_by"].(string); ok {
+		switch orderBy {
+		case "title":
+			dbQuery = dbQuery.Order("title ASC")
+		case "author":
+			dbQuery = dbQuery.Order("author ASC")
+		case "price_asc":
+			dbQuery = dbQuery.Order("price ASC")
+		case "price_desc":
+			dbQuery = dbQuery.Order("price DESC")
+		case "created_at":
+			dbQuery = dbQuery.Order("created_at DESC")
+		case "published":
+			dbQuery = dbQuery.Order("published DESC")
+		default:
+			dbQuery = dbQuery.Order("id ASC")
+		}
+	} else {
+		dbQuery = dbQuery.Order("id ASC")
+	}
+
+	// 分頁選項
+	if limit, ok := criteria["limit"].(int); ok && limit > 0 {
+		dbQuery = dbQuery.Limit(limit)
+	}
+	if offset, ok := criteria["offset"].(int); ok && offset >= 0 {
+		dbQuery = dbQuery.Offset(offset)
+	}
+
+	err := dbQuery.Find(&books).Error
+	return books, err
 }
 
 // GetBookByID 根據 ID 獲取書籍

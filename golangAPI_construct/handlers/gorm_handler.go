@@ -21,24 +21,116 @@ func NewGORMHandler(gormService *services.BookServiceGORM) *GORMHandler {
 	return &GORMHandler{gormService: gormService}
 }
 
-// SearchBooks 搜索書籍
+// SearchBooks 搜索書籍（增強版）
 func (h *GORMHandler) SearchBooks(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query().Get("q")
-	if query == "" {
-		responses.Fail(w, r, responses.NewAppError(http.StatusBadRequest, "MISSING_QUERY", "Search query parameter 'q' is required"))
-		return
+
+	// 構建篩選條件
+	filters := make(map[string]interface{})
+
+	// 價格範圍篩選
+	if minPriceStr := r.URL.Query().Get("min_price"); minPriceStr != "" {
+		if minPrice, err := strconv.ParseFloat(minPriceStr, 64); err == nil {
+			filters["min_price"] = minPrice
+		}
+	}
+	if maxPriceStr := r.URL.Query().Get("max_price"); maxPriceStr != "" {
+		if maxPrice, err := strconv.ParseFloat(maxPriceStr, 64); err == nil {
+			filters["max_price"] = maxPrice
+		}
 	}
 
-	results, err := h.gormService.SearchBooks(query)
+	// 分類篩選
+	if category := r.URL.Query().Get("category"); category != "" {
+		filters["category"] = category
+	}
+
+	// 年份篩選
+	if yearStr := r.URL.Query().Get("year"); yearStr != "" {
+		if year, err := strconv.Atoi(yearStr); err == nil {
+			filters["year"] = year
+		}
+	}
+
+	results, err := h.gormService.SearchBooksAdvanced(query, filters)
 	if err != nil {
-		responses.Fail(w, r, responses.NewAppError(http.StatusInternalServerError, "SEARCH_FAILED", "Failed to search books"))
+		responses.Fail(w, r, responses.NewAppError(http.StatusInternalServerError, "SEARCH_FAILED", err.Error()))
 		return
 	}
 
 	responses.Success(w, r, http.StatusOK, map[string]interface{}{
 		"query":   query,
+		"filters": filters,
 		"results": results,
 		"count":   len(results),
+	})
+}
+
+// SearchBooksAdvanced 高級搜索端點
+func (h *GORMHandler) SearchBooksAdvanced(w http.ResponseWriter, r *http.Request) {
+	// 解析查詢參數
+	criteria := make(map[string]interface{})
+
+	// 基本搜索條件
+	if title := r.URL.Query().Get("title"); title != "" {
+		criteria["title"] = title
+	}
+	if author := r.URL.Query().Get("author"); author != "" {
+		criteria["author"] = author
+	}
+	if category := r.URL.Query().Get("category"); category != "" {
+		criteria["category"] = category
+	}
+	if isbn := r.URL.Query().Get("isbn"); isbn != "" {
+		criteria["isbn"] = isbn
+	}
+
+	// 價格範圍
+	if minPriceStr := r.URL.Query().Get("min_price"); minPriceStr != "" {
+		if minPrice, err := strconv.ParseFloat(minPriceStr, 64); err == nil {
+			criteria["min_price"] = minPrice
+		}
+	}
+	if maxPriceStr := r.URL.Query().Get("max_price"); maxPriceStr != "" {
+		if maxPrice, err := strconv.ParseFloat(maxPriceStr, 64); err == nil {
+			criteria["max_price"] = maxPrice
+		}
+	}
+
+	// 年份
+	if yearStr := r.URL.Query().Get("year"); yearStr != "" {
+		if year, err := strconv.Atoi(yearStr); err == nil {
+			criteria["year"] = year
+		}
+	}
+
+	// 排序
+	if orderBy := r.URL.Query().Get("order_by"); orderBy != "" {
+		criteria["order_by"] = orderBy
+	}
+
+	// 分頁
+	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
+		if limit, err := strconv.Atoi(limitStr); err == nil && limit > 0 {
+			criteria["limit"] = limit
+		}
+	}
+	if offsetStr := r.URL.Query().Get("offset"); offsetStr != "" {
+		if offset, err := strconv.Atoi(offsetStr); err == nil && offset >= 0 {
+			criteria["offset"] = offset
+		}
+	}
+
+	results, err := h.gormService.GetBooksByMultipleCriteria(criteria)
+	if err != nil {
+		responses.Fail(w, r, responses.NewAppError(http.StatusInternalServerError, "ADVANCED_SEARCH_FAILED", err.Error()))
+		return
+	}
+
+	responses.Success(w, r, http.StatusOK, map[string]interface{}{
+		"criteria": criteria,
+		"results":  results,
+		"count":    len(results),
 	})
 }
 
