@@ -855,6 +855,7 @@ curl http://localhost:8080/api/metrics/detailed
 - ✅ **自動遷移**：數據庫結構自動同步
 - ✅ **緩存整合**：與 Redis 緩存完美配合
 - ✅ **監控指標**：內建 Prometheus 指標收集
+- ✅ **GORM Hooks**：自動化業務邏輯和數據一致性
 
 ### 與傳統方案的比較
 
@@ -883,3 +884,261 @@ GORM 整合讓你的 Go API 具備了現代 ORM 的所有優勢：
 - **🔧 易於維護**：清晰的代碼結構和豐富的調試工具
 
 無論你是 GORM 新手還是經驗豐富的開發者，這個整合都能讓你的 Go API 開發更加高效和愉快！
+
+## 🔗 GORM Hooks - 生命週期管理
+
+### 什麼是 GORM Hooks？
+
+**GORM Hooks** 是 GORM 提供的生命週期回調函數，讓你在數據庫操作的特定時機自動執行自定義邏輯。就像"鉤子"一樣，在關鍵時刻"鉤住"並執行你的代碼。
+
+### 🎯 Hooks 的完整生命週期
+
+```
+創建流程：
+BeforeCreate → Validate → Create → AfterCreate
+
+更新流程：
+BeforeUpdate → Validate → Update → AfterUpdate
+
+刪除流程：
+BeforeDelete → Delete → AfterDelete
+```
+
+### 🚀 實際應用場景
+
+#### 1. **BeforeCreate Hook - 創建前處理**
+```go
+func (b *BookGORM) BeforeCreate(tx *gorm.DB) error {
+    // 數據清理和標準化
+    b.Title = strings.TrimSpace(b.Title)
+    b.Author = strings.TrimSpace(b.Author)
+    
+    // 數據驗證
+    if b.Price < 0 {
+        return errors.New("price must be positive")
+    }
+    
+    // 自動設置默認值
+    if b.Category == "" {
+        b.Category = "General"
+    }
+    
+    // 自動生成 ISBN
+    if b.ISBN == "" {
+        b.ISBN = generateISBN()
+    }
+    
+    // 檢查重複數據
+    var existingBook BookGORM
+    err := tx.Where("title = ? AND author = ?", b.Title, b.Author).First(&existingBook).Error
+    if err == nil {
+        return errors.New("book with same title and author already exists")
+    }
+    
+    return nil
+}
+```
+
+#### 2. **AfterCreate Hook - 創建後處理**
+```go
+func (b *BookGORM) AfterCreate(tx *gorm.DB) error {
+    // 更新統計數據
+    updateBookCount(tx)
+    updateAuthorStatistics(tx, b.Author)
+    updateCategoryStatistics(tx, b.Category)
+    
+    // 自動創建分類記錄
+    ensureCategoryExists(tx, b.Category)
+    
+    // 記錄審計日誌
+    logAudit(tx, "BOOK_CREATED", b.ID, fmt.Sprintf("Book '%s' created", b.Title))
+    
+    // 發送業務通知
+    sendNotification("BOOK_CREATED", map[string]interface{}{
+        "book_id": b.ID,
+        "title":   b.Title,
+        "author":  b.Author,
+    })
+    
+    // 更新緩存
+    invalidateCache("books")
+    
+    return nil
+}
+```
+
+#### 3. **BeforeUpdate Hook - 更新前處理**
+```go
+func (b *BookGORM) BeforeUpdate(tx *gorm.DB) error {
+    // 獲取原始數據用於比較
+    var originalBook BookGORM
+    tx.First(&originalBook, b.ID)
+    
+    // 檢查價格變化
+    if originalBook.Price != b.Price {
+        // 如果價格大幅下降，觸發促銷通知
+        if b.Price < originalBook.Price*0.8 {
+            sendPromotionNotification(b.Title, b.Price, originalBook.Price)
+        }
+    }
+    
+    // 檢查 ISBN 重複
+    if b.ISBN != "" {
+        var existingBook BookGORM
+        err := tx.Where("isbn = ? AND id != ?", b.ISBN, b.ID).First(&existingBook).Error
+        if err == nil {
+            return errors.New("ISBN already exists")
+        }
+    }
+    
+    return nil
+}
+```
+
+#### 4. **BeforeDelete Hook - 刪除前檢查**
+```go
+func (b *BookGORM) BeforeDelete(tx *gorm.DB) error {
+    // 檢查是否有相關評論
+    var reviewCount int64
+    tx.Model(&ReviewGORM{}).Where("book_id = ?", b.ID).Count(&reviewCount)
+    if reviewCount > 0 {
+        return errors.New("cannot delete book with reviews")
+    }
+    
+    // 檢查是否有用戶收藏
+    var favoriteCount int64
+    tx.Model(&UserBookGORM{}).Where("book_id = ?", b.ID).Count(&favoriteCount)
+    if favoriteCount > 0 {
+        return errors.New("cannot delete book with user favorites")
+    }
+    
+    return nil
+}
+```
+
+### 💡 Hooks 的優勢
+
+#### 1. **數據一致性**
+- ✅ **自動驗證**：所有操作都經過相同的驗證邏輯
+- ✅ **自動清理**：數據自動標準化和清理
+- ✅ **重複檢查**：自動檢查重複數據
+
+#### 2. **業務邏輯自動化**
+- ✅ **統計更新**：自動更新相關統計數據
+- ✅ **通知發送**：自動發送業務通知
+- ✅ **審計日誌**：自動記錄操作日誌
+
+#### 3. **代碼集中化**
+- ✅ **邏輯集中**：業務邏輯集中在模型中
+- ✅ **減少重複**：避免在每個 handler 中重複代碼
+- ✅ **易於維護**：修改邏輯只需要改一個地方
+
+#### 4. **事務安全**
+- ✅ **原子操作**：在數據庫事務中執行
+- ✅ **自動回滾**：如果 Hook 失敗，整個操作會回滾
+- ✅ **數據完整性**：確保數據庫狀態一致
+
+### 🧪 Hooks 測試範例
+
+```bash
+# 1. 測試 BeforeCreate Hook
+echo "=== 測試 BeforeCreate Hook ==="
+curl -X POST http://localhost:8080/api/v1/books \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{
+    "title": "  GORM Hooks 測試  ",
+    "author": "  Hook 作者  ",
+    "price": 29.99
+  }'
+
+# 觀察日誌輸出：
+# [GORM Hook] BeforeCreate: 開始創建書籍 'GORM Hooks 測試'
+# [GORM Hook] BeforeCreate: 自動設置默認分類 'General'
+# [GORM Hook] BeforeCreate: 自動生成 ISBN '123-456-789'
+# [GORM Hook] BeforeCreate: 驗證通過，準備創建書籍 'GORM Hooks 測試'
+
+# 2. 測試 AfterCreate Hook
+# 觀察日誌輸出：
+# [GORM Hook] AfterCreate: 書籍創建成功 'GORM Hooks 測試' (ID: 6)
+# [GORM Hook Helper] updateBookCount: 書籍總數更新為 6
+# [GORM Hook Helper] updateAuthorStatistics: 作者 'Hook 作者' 統計更新
+# 📚 新書上架通知: GORM Hooks 測試
+
+# 3. 測試 BeforeUpdate Hook
+echo "=== 測試 BeforeUpdate Hook ==="
+curl -X PUT http://localhost:8080/api/v1/books/6 \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{
+    "title": "GORM Hooks 測試",
+    "author": "Hook 作者",
+    "price": 19.99
+  }'
+
+# 觀察日誌輸出：
+# [GORM Hook] BeforeUpdate: 價格變化 29.99 -> 19.99
+# [GORM Hook] BeforeUpdate: 檢測到大幅降價，觸發促銷通知
+# [GORM Hook Helper] sendPromotionNotification: 促銷通知 - 折扣: 33.3%
+
+# 4. 測試 BeforeDelete Hook
+echo "=== 測試 BeforeDelete Hook ==="
+curl -X DELETE http://localhost:8080/api/v1/books/6 \
+  -H "Authorization: Bearer $TOKEN"
+
+# 觀察日誌輸出：
+# [GORM Hook] BeforeDelete: 開始刪除書籍 'GORM Hooks 測試' (ID: 6)
+# [GORM Hook] BeforeDelete: 刪除原因檢查完成
+# [GORM Hook] AfterDelete: 書籍刪除成功 'GORM Hooks 測試' (ID: 6)
+# 🗑️ 書籍下架通知: GORM Hooks 測試
+```
+
+### 🔧 自定義 Hooks
+
+你可以根據需要添加更多自定義的 Hook 邏輯：
+
+```go
+// 自定義驗證函數
+func (b *BookGORM) Validate() error {
+    if b.Price < 0 {
+        return errors.New("price must be positive")
+    }
+    if len(b.Title) < 1 {
+        return errors.New("title cannot be empty")
+    }
+    return nil
+}
+
+// 自定義業務規則
+func (b *BookGORM) CheckBusinessRules(tx *gorm.DB) error {
+    // 檢查庫存
+    if b.Stock < 0 {
+        return errors.New("stock cannot be negative")
+    }
+    
+    // 檢查價格範圍
+    if b.Price > 1000 {
+        return errors.New("price cannot exceed 1000")
+    }
+    
+    return nil
+}
+```
+
+### 📊 Hooks 性能影響
+
+| Hook 類型 | 執行時機 | 性能影響 | 建議用途 |
+|-----------|----------|----------|----------|
+| **BeforeCreate** | 創建前 | 低 | 驗證、清理、設置默認值 |
+| **AfterCreate** | 創建後 | 中 | 統計更新、通知發送 |
+| **BeforeUpdate** | 更新前 | 低 | 變化檢查、重複驗證 |
+| **AfterUpdate** | 更新後 | 中 | 統計更新、緩存清理 |
+| **BeforeDelete** | 刪除前 | 低 | 依賴檢查、權限驗證 |
+| **AfterDelete** | 刪除後 | 中 | 清理、統計更新 |
+
+### ⚠️ 注意事項
+
+1. **性能考慮**：Hooks 會在每次數據庫操作時執行，避免在 Hooks 中執行耗時操作
+2. **錯誤處理**：Hook 返回錯誤會導致整個操作失敗，確保錯誤處理邏輯正確
+3. **事務安全**：Hooks 在事務中執行，避免在 Hooks 中執行會影響事務的操作
+4. **循環依賴**：避免在 Hooks 中觸發會再次調用相同 Hook 的操作
