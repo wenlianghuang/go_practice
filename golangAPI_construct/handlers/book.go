@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"golangAPI_construct/middleware"
 	"golangAPI_construct/models"
 	"golangAPI_construct/responses"
 	"golangAPI_construct/services"
@@ -45,7 +46,8 @@ func (h *BookHandler) GetBooks(w http.ResponseWriter, r *http.Request) {
 func (h *BookHandler) CreateBook(w http.ResponseWriter, r *http.Request) {
 	// 從 context 中獲取已驗證的數據
 	// RequestValidator 中間件會將驗證後的 JSON 數據存儲在這裡
-	validatedData, ok := r.Context().Value("validated_data").(map[string]interface{})
+	// 🔴 斷點 4：檢查從中間件獲取的驗證數據
+	validatedData, ok := r.Context().Value(middleware.ValidatedDataKey).(map[string]interface{})
 	if !ok {
 		// 如果沒有找到驗證後的數據，說明中間件沒有正確執行
 		// 這通常不應該發生，但為了安全起見我們還是要檢查
@@ -101,7 +103,7 @@ func (h *BookHandler) GetBookByID(w http.ResponseWriter, r *http.Request) {
 func (h *BookHandler) UpdateBook(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
-	validatedData, ok := r.Context().Value("validated_data").(map[string]interface{})
+	validatedData, ok := r.Context().Value(middleware.ValidatedDataKey).(map[string]interface{})
 	if !ok {
 		responses.Fail(w, r, responses.NewAppError(http.StatusInternalServerError, "VALIDATION_ERROR", "Failed to get validated data"))
 		return
@@ -144,7 +146,7 @@ func (h *BookHandler) UpdateBook(w http.ResponseWriter, r *http.Request) {
 func (h *BookHandler) PatchBook(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
-	validatedData, ok := r.Context().Value("validated_data").(map[string]interface{})
+	validatedData, ok := r.Context().Value(middleware.ValidatedDataKey).(map[string]interface{})
 	if !ok {
 		responses.Fail(w, r, responses.NewAppError(http.StatusInternalServerError, "VALIDATION_ERROR", "Failed to get validated data"))
 		return

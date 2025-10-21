@@ -11,6 +11,11 @@ import (
 	"golangAPI_construct/responses"
 )
 
+// 定義 context key 類型以避免衝突
+type contextKey string
+
+const ValidatedDataKey contextKey = "validated_data"
+
 // ValidationRule 定義單一欄位的驗證規則
 // 這個結構體用於配置每個欄位的驗證要求
 type ValidationRule struct {
@@ -49,6 +54,7 @@ func RequestValidator(config ValidationConfig) func(http.Handler) http.Handler {
 			// 解析請求體中的 JSON 數據
 			// 使用 map[string]interface{} 來處理動態的 JSON 結構
 			var requestData map[string]interface{}
+			// 🔴 斷點 1：檢查 JSON 解析前的狀態
 			if err := json.NewDecoder(r.Body).Decode(&requestData); err != nil {
 				responses.Fail(w, r, responses.NewAppError(
 					http.StatusBadRequest,
@@ -60,6 +66,7 @@ func RequestValidator(config ValidationConfig) func(http.Handler) http.Handler {
 
 			// 執行驗證邏輯
 			// 如果驗證失敗，會返回 AppError 並直接響應給客戶端
+			// 🔴 斷點 2：檢查驗證前的數據
 			if err := validateRequest(requestData, config.Rules); err != nil {
 				responses.Fail(w, r, err)
 				return
@@ -67,8 +74,9 @@ func RequestValidator(config ValidationConfig) func(http.Handler) http.Handler {
 
 			// 驗證成功後，將驗證後的數據存儲到 context 中
 			// 後續的 handler 可以從 context 中安全地獲取這些數據
+			// 🔴 斷點 3：檢查驗證成功後的數據
 			ctx := r.Context()
-			ctx = context.WithValue(ctx, "validated_data", requestData)
+			ctx = context.WithValue(ctx, ValidatedDataKey, requestData)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
