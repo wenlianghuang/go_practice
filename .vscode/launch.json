@@ -7,6 +7,9 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/complex_breakpoint_example",
+            "env": {
+                "PORT": "9090"
+            },
             "args": [],
             "showLog": true,
             "trace": "verbose",

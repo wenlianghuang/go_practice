@@ -1,6 +1,28 @@
 # 🎯 複雜 Go Breakpoint 調試練習範例
 
-這是一個專門設計用於練習 Go 語言 breakpoint 調試技巧的複雜銀行系統模擬器。系統包含多個業務場景，從簡單的用戶管理到複雜的並發處理，讓你能夠全面練習各種調試技巧。
+這是一個專門設計用於練習 Go 語言 breakpoint 調試技巧的複雜銀行系統模擬器。項目採用分層架構設計，更符合實際項目的最佳實踐，讓你能夠全面練習各種調試技巧。
+
+## 🏗️ 項目結構
+
+```
+complex_breakpoint_example/
+├── main.go                 # 程序入口
+├── config/
+│   └── config.go          # 配置管理
+├── models/
+│   └── models.go          # 數據模型定義
+├── database/
+│   └── database.go        # 數據庫操作
+├── handlers/
+│   └── handlers.go        # HTTP 處理器
+├── services/
+│   └── services.go        # 業務邏輯服務
+├── middleware/
+│   └── middleware.go      # 中間件
+├── routes/
+│   └── routes.go          # 路由配置
+└── tests/                 # 測試文件
+```
 
 ## 🚀 快速開始
 
@@ -40,6 +62,12 @@ go run main.go
 - **數據驗證錯誤**: 無效金額、重複用戶名
 - **系統錯誤**: 隨機處理失敗、超時處理
 - **邊界條件**: 極值測試、空值處理
+
+### 🏛️ 分層架構
+- **Handler 層**: HTTP 請求處理
+- **Service 層**: 業務邏輯處理
+- **Database 層**: 數據操作
+- **Middleware 層**: 橫切關注點
 
 ## 🎯 調試練習場景
 

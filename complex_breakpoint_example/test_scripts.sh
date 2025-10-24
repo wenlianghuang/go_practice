@@ -8,7 +8,7 @@ echo "=================================="
 
 # 檢查服務器是否運行
 check_server() {
-    if curl -s http://localhost:8080/health > /dev/null; then
+    if curl -s http://localhost:9090/health > /dev/null; then
         echo "✅ 服務器正在運行"
         return 0
     else
@@ -24,7 +24,7 @@ test_create_user() {
     echo "----------------------"
     
     echo "創建新用戶..."
-    curl -X POST http://localhost:8080/api/v1/users \
+    curl -X POST http://localhost:9090/api/v1/users \
         -H "Content-Type: application/json" \
         -d '{
             "username": "testuser1",
@@ -33,7 +33,7 @@ test_create_user() {
     
     echo ""
     echo "嘗試創建重複用戶名..."
-    curl -X POST http://localhost:8080/api/v1/users \
+    curl -X POST http://localhost:9090/api/v1/users \
         -H "Content-Type: application/json" \
         -d '{
             "username": "testuser1",
@@ -48,7 +48,7 @@ test_deposit() {
     echo "----------------------"
     
     echo "正常存款..."
-    curl -X POST http://localhost:8080/api/v1/users/1/deposit \
+    curl -X POST http://localhost:9090/api/v1/users/1/deposit \
         -H "Content-Type: application/json" \
         -d '{
             "amount": 100.0,
@@ -57,7 +57,7 @@ test_deposit() {
     
     echo ""
     echo "無效金額存款..."
-    curl -X POST http://localhost:8080/api/v1/users/1/deposit \
+    curl -X POST http://localhost:9090/api/v1/users/1/deposit \
         -H "Content-Type: application/json" \
         -d '{
             "amount": -50.0,
@@ -66,7 +66,7 @@ test_deposit() {
     
     echo ""
     echo "查看用戶帳戶..."
-    curl http://localhost:8080/api/v1/users/1/account | jq .
+    curl http://localhost:9090/api/v1/users/1/account | jq .
 }
 
 # 測試案例 3: 提款處理
@@ -76,7 +76,7 @@ test_withdraw() {
     echo "----------------------"
     
     echo "正常提款..."
-    curl -X POST http://localhost:8080/api/v1/users/1/withdraw \
+    curl -X POST http://localhost:9090/api/v1/users/1/withdraw \
         -H "Content-Type: application/json" \
         -d '{
             "amount": 50.0,
@@ -85,7 +85,7 @@ test_withdraw() {
     
     echo ""
     echo "餘額不足提款..."
-    curl -X POST http://localhost:8080/api/v1/users/1/withdraw \
+    curl -X POST http://localhost:9090/api/v1/users/1/withdraw \
         -H "Content-Type: application/json" \
         -d '{
             "amount": 10000.0,
@@ -100,7 +100,7 @@ test_transfer() {
     echo "----------------------"
     
     echo "正常轉帳..."
-    curl -X POST http://localhost:8080/api/v1/transfer \
+    curl -X POST http://localhost:9090/api/v1/transfer \
         -H "Content-Type: application/json" \
         -d '{
             "from_user_id": 1,
@@ -111,7 +111,7 @@ test_transfer() {
     
     echo ""
     echo "餘額不足轉帳..."
-    curl -X POST http://localhost:8080/api/v1/transfer \
+    curl -X POST http://localhost:9090/api/v1/transfer \
         -H "Content-Type: application/json" \
         -d '{
             "from_user_id": 2,
@@ -123,9 +123,9 @@ test_transfer() {
     echo ""
     echo "查看兩個用戶的帳戶..."
     echo "用戶 1:"
-    curl http://localhost:8080/api/v1/users/1/account | jq .
+    curl http://localhost:9090/api/v1/users/1/account | jq .
     echo "用戶 2:"
-    curl http://localhost:8080/api/v1/users/2/account | jq .
+    curl http://localhost:9090/api/v1/users/2/account | jq .
 }
 
 # 測試案例 5: 貸款申請
@@ -135,7 +135,7 @@ test_loan() {
     echo "----------------------"
     
     echo "申請貸款..."
-    curl -X POST http://localhost:8080/api/v1/users/1/apply-loan \
+    curl -X POST http://localhost:9090/api/v1/users/1/apply-loan \
         -H "Content-Type: application/json" \
         -d '{
             "amount": 5000.0,
@@ -144,7 +144,7 @@ test_loan() {
     
     echo ""
     echo "無效期限貸款申請..."
-    curl -X POST http://localhost:8080/api/v1/users/1/apply-loan \
+    curl -X POST http://localhost:9090/api/v1/users/1/apply-loan \
         -H "Content-Type: application/json" \
         -d '{
             "amount": 1000.0,
@@ -154,7 +154,7 @@ test_loan() {
     echo ""
     echo "查看貸款申請狀態..."
     sleep 2  # 等待審核完成
-    curl http://localhost:8080/api/v1/users/1/loans | jq .
+    curl http://localhost:9090/api/v1/users/1/loans | jq .
 }
 
 # 測試案例 6: 並發操作
@@ -164,7 +164,7 @@ test_concurrent() {
     echo "----------------------"
     
     echo "並發存款操作..."
-    curl -X POST http://localhost:8080/api/v1/test/concurrent \
+    curl -X POST http://localhost:9090/api/v1/test/concurrent \
         -H "Content-Type: application/json" \
         -d '{
             "user_id": 1,
@@ -175,7 +175,7 @@ test_concurrent() {
     
     echo ""
     echo "並發提款操作..."
-    curl -X POST http://localhost:8080/api/v1/test/concurrent \
+    curl -X POST http://localhost:9090/api/v1/test/concurrent \
         -H "Content-Type: application/json" \
         -d '{
             "user_id": 1,
@@ -192,21 +192,21 @@ test_error_handling() {
     echo "----------------------"
     
     echo "不存在的用戶..."
-    curl http://localhost:8080/api/v1/users/999 | jq .
+    curl http://localhost:9090/api/v1/users/999 | jq .
     
     echo ""
     echo "無效的用戶 ID..."
-    curl http://localhost:8080/api/v1/users/invalid | jq .
+    curl http://localhost:9090/api/v1/users/invalid | jq .
     
     echo ""
     echo "無效的 JSON..."
-    curl -X POST http://localhost:8080/api/v1/users \
+    curl -X POST http://localhost:9090/api/v1/users \
         -H "Content-Type: application/json" \
         -d '{"username": "test", "email":}' | jq .
     
     echo ""
     echo "非活躍用戶操作..."
-    curl -X POST http://localhost:8080/api/v1/users/3/deposit \
+    curl -X POST http://localhost:9090/api/v1/users/3/deposit \
         -H "Content-Type: application/json" \
         -d '{
             "amount": 100.0,
@@ -221,17 +221,17 @@ view_all_data() {
     echo "----------------"
     
     echo "所有用戶:"
-    curl http://localhost:8080/api/v1/users/1 | jq .
-    curl http://localhost:8080/api/v1/users/2 | jq .
-    curl http://localhost:8080/api/v1/users/3 | jq .
+    curl http://localhost:9090/api/v1/users/1 | jq .
+    curl http://localhost:9090/api/v1/users/2 | jq .
+    curl http://localhost:9090/api/v1/users/3 | jq .
     
     echo ""
     echo "用戶 1 的交易記錄:"
-    curl http://localhost:8080/api/v1/users/1/transactions | jq .
+    curl http://localhost:9090/api/v1/users/1/transactions | jq .
     
     echo ""
     echo "用戶 1 的貸款申請:"
-    curl http://localhost:8080/api/v1/users/1/loans | jq .
+    curl http://localhost:9090/api/v1/users/1/loans | jq .
 }
 
 # 主菜單
