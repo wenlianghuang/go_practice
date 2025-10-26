@@ -197,6 +197,17 @@ func (d *Database) ProcessDeposit(userID int, amount float64, description string
 	// 模擬處理時間
 	time.Sleep(time.Duration(rand.Intn(100)) * time.Millisecond)
 
+	// -------------------------
+	// BUG REVIEW:
+	// 1. d.nextID 當作 user, bankAccount, transaction 共用，存在 race condition 的風險，如果多 goroutine 下，出現 id 重覆或跳號(雖然有 mutex 可解)。
+	// 2. 使用 d.nextID 當作 transaction id 與 map key，先放入 transaction 然後再 ++，沒問題。
+	// 3. ACCOUNT 的 id 創建時用 d.nextID（與 user id 分離），但查找時僅用 UserID，這邊可能導致一個 user 多帳戶的錯誤：但每 CreateUser 產生不同 d.nextID, 所以除非有 bug 不會產生多帳戶。
+	// 4. 在 transaction 記錄未結果時放入 map, 未完成狀態是
+	// 5. account.Balance 跟 user.Balance 都要同時更新, 且浮點運算有失真風險，但目前是正確同步更新。
+	// 6. 判斷 transaction 隨機失敗後, 前面已將交易加入 map, 成功才更新餘額, 沒有金額不一致問題。
+	// 7. 大致來說，結構上沒邏輯嚴重 bug，唯一要注意浮點累加的精度問題，但這是示範性 DB 可接受。
+	// -------------------------
+
 	// 創建交易記錄
 	transaction := &models.Transaction{
 		ID:          d.nextID,
