@@ -58,3 +58,21 @@ type ConcurrentTestResponse struct {
 	Results      []*Transaction `json:"results"`
 	Errors       []string       `json:"errors"`
 }
+
+// Custom errors for testing
+type ErrInsufficientFunds struct {
+	Message string
+}
+
+func (e *ErrInsufficientFunds) Error() string {
+	return "insufficient funds"
+}
+
+type ErrUserNotFound struct {
+	UserID  int
+	Message string
+}
+
+func (e *ErrUserNotFound) Error() string {
+	return "user not found"
+}

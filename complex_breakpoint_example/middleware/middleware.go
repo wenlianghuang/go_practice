@@ -41,6 +41,19 @@ func CORSMiddleware(next http.Handler) http.Handler {
 }
 
 // 請求驗證中間件
+/**
+ * ValidationMiddleware 驗證中間件
+ *
+ * 此中間件主要用來檢查當收到 POST 或 PUT 請求時，
+ * Content-Type 是否設置為 "application/json"。
+ * 若不是，將會以 400 Bad Request 回應錯誤訊息。
+ *
+ * @param next 下一個 http.Handler
+ * @return http.Handler - 包裝過驗證邏輯的新 handler
+ *
+ * Example:
+ *     router.Use(middleware.ValidationMiddleware)
+ */
 func ValidationMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// 檢查 Content-Type
