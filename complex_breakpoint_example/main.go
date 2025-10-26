@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 
 	"complex_breakpoint_example/config"
 	"complex_breakpoint_example/database"
@@ -15,14 +16,50 @@ func main() {
 	// 初始化配置
 	cfg := config.Load()
 
-	// 初始化數據庫
-	db := database.New()
-	db.Initialize()
+	// 判斷使用哪種數據庫
+	useGorm := os.Getenv("USE_GORM")
+	if useGorm == "" {
+		// 默認使用 GORM/PostgreSQL
+		useGorm = "true"
+	}
 
-	// 初始化服務
-	userService := services.NewUserService(db)
-	transactionService := services.NewTransactionService(db)
-	loanService := services.NewLoanService(db)
+	var userService *services.UserService
+	var transactionService *services.TransactionService
+	var loanService *services.LoanService
+
+	if useGorm == "true" {
+		// 使用 GORM + PostgreSQL
+		fmt.Println("📊 Using PostgreSQL database with GORM")
+
+		gormDB, err := database.NewGormDatabase(cfg.DatabaseURL)
+		if err != nil {
+			log.Fatalf("Failed to connect to PostgreSQL: %v\n\nHint: Make sure PostgreSQL is running:\n  brew services start postgresql\n\nOr use in-memory database:\n  USE_GORM=false go run main.go", err)
+		}
+
+		if err := gormDB.Initialize(); err != nil {
+			log.Printf("Warning: Failed to initialize database: %v", err)
+		}
+
+		fmt.Println("✅ Connected to PostgreSQL database")
+
+		// 創建 GORM 適配器
+		dbAdapter := database.NewGormAdapter(gormDB)
+
+		// 初始化服務（使用 GORM 適配器）
+		userService = services.NewUserService(dbAdapter)
+		transactionService = services.NewTransactionService(dbAdapter)
+		loanService = services.NewLoanService(dbAdapter)
+	} else {
+		// 使用內存數據庫
+		db := database.New()
+		db.Initialize()
+		fmt.Println("✅ Using in-memory database")
+
+		// 初始化服務
+		userService = services.NewUserService(db)
+		transactionService = services.NewTransactionService(db)
+		loanService = services.NewLoanService(db)
+	}
 
 	// 設置路由
 	router := routes.SetupRoutes(userService, transactionService, loanService)

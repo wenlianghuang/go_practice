@@ -9,23 +9,37 @@ import (
 	"complex_breakpoint_example/models"
 )
 
+// DatabaseInterface 定义数据库操作的通用接口
+type DatabaseInterface interface {
+	CreateUser(username, email string, initialBalance float64) (*models.User, error)
+	GetUser(id uint) (*models.User, error)
+	GetAllUsers() ([]*models.User, error)
+	GetUserAccount(userID uint) (*models.BankAccount, error)
+	ProcessDeposit(userID uint, amount float64, description string) (*models.Transaction, error)
+	ProcessWithdrawal(userID uint, amount float64, description string) (*models.Transaction, error)
+	ProcessTransfer(fromUserID, toUserID uint, amount float64, description string) (*models.Transaction, error)
+	GetUserTransactions(userID uint) ([]*models.Transaction, error)
+	ApplyForLoan(userID uint, amount float64, term int) (*models.LoanApplication, error)
+	GetUserLoanApplications(userID uint) ([]*models.LoanApplication, error)
+}
+
 // 模擬數據庫
 type Database struct {
-	users            map[int]*models.User
-	transactions     map[int]*models.Transaction
-	bankAccounts     map[int]*models.BankAccount
-	loanApplications map[int]*models.LoanApplication
+	users            map[uint]*models.User
+	transactions     map[uint]*models.Transaction
+	bankAccounts     map[uint]*models.BankAccount
+	loanApplications map[uint]*models.LoanApplication
 	mu               sync.RWMutex
-	nextID           int
+	nextID           uint
 }
 
 // 創建新的數據庫實例
 func New() *Database {
 	return &Database{
-		users:            make(map[int]*models.User),
-		transactions:     make(map[int]*models.Transaction),
-		bankAccounts:     make(map[int]*models.BankAccount),
-		loanApplications: make(map[int]*models.LoanApplication),
+		users:            make(map[uint]*models.User),
+		transactions:     make(map[uint]*models.Transaction),
+		bankAccounts:     make(map[uint]*models.BankAccount),
+		loanApplications: make(map[uint]*models.LoanApplication),
 		nextID:           1,
 	}
 }
@@ -43,9 +57,9 @@ func (d *Database) Initialize() {
 func (d *Database) addTestData() {
 	// 添加用戶
 	users := []*models.User{
-		{ID: 1, Username: "alice", Email: "alice@example.com", Balance: 1000.0, IsActive: true},
-		{ID: 2, Username: "bob", Email: "bob@example.com", Balance: 500.0, IsActive: true},
-		{ID: 3, Username: "charlie", Email: "charlie@example.com", Balance: 2000.0, IsActive: false},
+		{ID: uint(1), Username: "alice", Email: "alice@example.com", Balance: 1000.0, IsActive: true},
+		{ID: uint(2), Username: "bob", Email: "bob@example.com", Balance: 500.0, IsActive: true},
+		{ID: uint(3), Username: "charlie", Email: "charlie@example.com", Balance: 2000.0, IsActive: false},
 	}
 
 	for _, user := range users {
@@ -54,9 +68,9 @@ func (d *Database) addTestData() {
 
 	// 添加銀行帳戶
 	accounts := []*models.BankAccount{
-		{ID: 1, UserID: 1, Balance: 1000.0, Currency: "USD", IsLocked: false},
-		{ID: 2, UserID: 2, Balance: 500.0, Currency: "USD", IsLocked: false},
-		{ID: 3, UserID: 3, Balance: 2000.0, Currency: "USD", IsLocked: true},
+		{ID: uint(1), UserID: uint(1), Balance: 1000.0, Currency: "USD", IsLocked: false},
+		{ID: uint(2), UserID: uint(2), Balance: 500.0, Currency: "USD", IsLocked: false},
+		{ID: uint(3), UserID: uint(3), Balance: 2000.0, Currency: "USD", IsLocked: true},
 	}
 
 	for _, account := range accounts {
@@ -65,16 +79,16 @@ func (d *Database) addTestData() {
 
 	// 添加一些交易記錄
 	transactions := []*models.Transaction{
-		{ID: 1, UserID: 1, Amount: 100.0, Type: "deposit", Description: "Initial deposit", Timestamp: time.Now().Add(-24 * time.Hour), Status: "completed"},
-		{ID: 2, UserID: 2, Amount: 50.0, Type: "withdraw", Description: "ATM withdrawal", Timestamp: time.Now().Add(-12 * time.Hour), Status: "completed"},
-		{ID: 3, UserID: 1, Amount: 200.0, Type: "transfer", Description: "Transfer to Bob", Timestamp: time.Now().Add(-6 * time.Hour), Status: "pending"},
+		{ID: uint(1), UserID: uint(1), Amount: 100.0, Type: "deposit", Description: "Initial deposit", Timestamp: time.Now().Add(-24 * time.Hour), Status: "completed"},
+		{ID: uint(2), UserID: uint(2), Amount: 50.0, Type: "withdraw", Description: "ATM withdrawal", Timestamp: time.Now().Add(-12 * time.Hour), Status: "completed"},
+		{ID: uint(3), UserID: uint(1), Amount: 200.0, Type: "transfer", Description: "Transfer to Bob", Timestamp: time.Now().Add(-6 * time.Hour), Status: "pending"},
 	}
 
 	for _, tx := range transactions {
 		d.transactions[tx.ID] = tx
 	}
 
-	d.nextID = 4
+	d.nextID = uint(4)
 }
 
 // 創建用戶
@@ -116,7 +130,7 @@ func (d *Database) CreateUser(username, email string, initialBalance float64) (*
 }
 
 // 獲取用戶
-func (d *Database) GetUser(id int) (*models.User, error) {
+func (d *Database) GetUser(id uint) (*models.User, error) {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
@@ -142,7 +156,7 @@ func (d *Database) GetAllUsers() ([]*models.User, error) {
 }
 
 // 獲取用戶的銀行帳戶
-func (d *Database) GetUserAccount(userID int) (*models.BankAccount, error) {
+func (d *Database) GetUserAccount(userID uint) (*models.BankAccount, error) {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
@@ -156,7 +170,7 @@ func (d *Database) GetUserAccount(userID int) (*models.BankAccount, error) {
 }
 
 // 處理存款
-func (d *Database) ProcessDeposit(userID int, amount float64, description string) (*models.Transaction, error) {
+func (d *Database) ProcessDeposit(userID uint, amount float64, description string) (*models.Transaction, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -237,7 +251,7 @@ func (d *Database) ProcessDeposit(userID int, amount float64, description string
 }
 
 // 處理提款
-func (d *Database) ProcessWithdrawal(userID int, amount float64, description string) (*models.Transaction, error) {
+func (d *Database) ProcessWithdrawal(userID uint, amount float64, description string) (*models.Transaction, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -312,7 +326,7 @@ func (d *Database) ProcessWithdrawal(userID int, amount float64, description str
 }
 
 // 處理轉帳
-func (d *Database) ProcessTransfer(fromUserID, toUserID int, amount float64, description string) (*models.Transaction, error) {
+func (d *Database) ProcessTransfer(fromUserID, toUserID uint, amount float64, description string) (*models.Transaction, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -411,7 +425,7 @@ func (d *Database) ProcessTransfer(fromUserID, toUserID int, amount float64, des
 }
 
 // 申請貸款
-func (d *Database) ApplyForLoan(userID int, amount float64, term int) (*models.LoanApplication, error) {
+func (d *Database) ApplyForLoan(userID uint, amount float64, term int) (*models.LoanApplication, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -494,7 +508,7 @@ func (d *Database) processLoanApplication(application *models.LoanApplication) {
 }
 
 // 獲取用戶的所有交易
-func (d *Database) GetUserTransactions(userID int) ([]*models.Transaction, error) {
+func (d *Database) GetUserTransactions(userID uint) ([]*models.Transaction, error) {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
@@ -509,7 +523,7 @@ func (d *Database) GetUserTransactions(userID int) ([]*models.Transaction, error
 }
 
 // 獲取用戶的貸款申請
-func (d *Database) GetUserLoanApplications(userID int) ([]*models.LoanApplication, error) {
+func (d *Database) GetUserLoanApplications(userID uint) ([]*models.LoanApplication, error) {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 

@@ -11,7 +11,7 @@ import (
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 )
 
-// 設置路由
+// SetupRoutes with in-memory database
 func SetupRoutes(userService *services.UserService, transactionService *services.TransactionService, loanService *services.LoanService) *chi.Mux {
 	router := chi.NewRouter()
 
@@ -63,4 +63,13 @@ func SetupRoutes(userService *services.UserService, transactionService *services
 	})
 
 	return router
+}
+
+// SetupRoutesGORM with GORM database
+// Note: Currently uses the same handlers as in-memory database
+// TODO: Create separate GORM handlers if needed
+func SetupRoutesGORM(userService *services.UserService, transactionService *services.TransactionService, loanService *services.LoanService) *chi.Mux {
+	// For now, route to the standard SetupRoutes
+	// GORM services implement the same interface
+	return SetupRoutes(userService, transactionService, loanService)
 }

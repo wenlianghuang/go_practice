@@ -12,12 +12,23 @@ import (
 
 // 用戶服務
 type UserService struct {
-	db *database.Database
+	db database.DatabaseInterface
 }
 
-func NewUserService(db *database.Database) *UserService {
+func NewUserService(db interface{}) *UserService {
+	// 类型断言
+	var dbInterface database.DatabaseInterface
+	switch v := db.(type) {
+	case *database.Database:
+		dbInterface = v
+	case *database.GormAdapter:
+		dbInterface = v
+	default:
+		panic("unsupported database type")
+	}
+
 	return &UserService{
-		db: db,
+		db: dbInterface,
 	}
 }
 
@@ -28,7 +39,7 @@ func (s *UserService) CreateUser(username, email string, initialBalance float64)
 
 // 獲取用戶
 func (s *UserService) GetUser(id int) (*models.User, error) {
-	return s.db.GetUser(id)
+	return s.db.GetUser(uint(id))
 }
 
 // 獲取所有用戶
@@ -38,38 +49,48 @@ func (s *UserService) GetAllUsers() ([]*models.User, error) {
 
 // 獲取用戶帳戶
 func (s *UserService) GetUserAccount(userID int) (*models.BankAccount, error) {
-	return s.db.GetUserAccount(userID)
+	return s.db.GetUserAccount(uint(userID))
 }
 
 // 交易服務
 type TransactionService struct {
-	db *database.Database
+	db database.DatabaseInterface
 }
 
-func NewTransactionService(db *database.Database) *TransactionService {
+func NewTransactionService(db interface{}) *TransactionService {
+	var dbInterface database.DatabaseInterface
+	switch v := db.(type) {
+	case *database.Database:
+		dbInterface = v
+	case *database.GormAdapter:
+		dbInterface = v
+	default:
+		panic("unsupported database type")
+	}
+
 	return &TransactionService{
-		db: db,
+		db: dbInterface,
 	}
 }
 
 // 存款
 func (s *TransactionService) Deposit(userID int, amount float64, description string) (*models.Transaction, error) {
-	return s.db.ProcessDeposit(userID, amount, description)
+	return s.db.ProcessDeposit(uint(userID), amount, description)
 }
 
 // 提款
 func (s *TransactionService) Withdraw(userID int, amount float64, description string) (*models.Transaction, error) {
-	return s.db.ProcessWithdrawal(userID, amount, description)
+	return s.db.ProcessWithdrawal(uint(userID), amount, description)
 }
 
 // 轉帳
 func (s *TransactionService) Transfer(fromUserID, toUserID int, amount float64, description string) (*models.Transaction, error) {
-	return s.db.ProcessTransfer(fromUserID, toUserID, amount, description)
+	return s.db.ProcessTransfer(uint(fromUserID), uint(toUserID), amount, description)
 }
 
 // 獲取用戶交易記錄
 func (s *TransactionService) GetUserTransactions(userID int) ([]*models.Transaction, error) {
-	return s.db.GetUserTransactions(userID)
+	return s.db.GetUserTransactions(uint(userID))
 }
 
 // 並發測試
@@ -106,9 +127,9 @@ func (s *TransactionService) ConcurrentTest(req *models.ConcurrentTestRequest) (
 
 			switch req.Operation {
 			case "deposit":
-				tx, err = s.db.ProcessDeposit(req.UserID, req.Amount, fmt.Sprintf("Concurrent deposit %d", index))
+				tx, err = s.db.ProcessDeposit(uint(req.UserID), req.Amount, fmt.Sprintf("Concurrent deposit %d", index))
 			case "withdraw":
-				tx, err = s.db.ProcessWithdrawal(req.UserID, req.Amount, fmt.Sprintf("Concurrent withdrawal %d", index))
+				tx, err = s.db.ProcessWithdrawal(uint(req.UserID), req.Amount, fmt.Sprintf("Concurrent withdrawal %d", index))
 			default:
 				err = fmt.Errorf("unsupported operation: %s", req.Operation)
 			}
@@ -141,21 +162,31 @@ func (s *TransactionService) ConcurrentTest(req *models.ConcurrentTestRequest) (
 
 // 貸款服務
 type LoanService struct {
-	db *database.Database
+	db database.DatabaseInterface
 }
 
-func NewLoanService(db *database.Database) *LoanService {
+func NewLoanService(db interface{}) *LoanService {
+	var dbInterface database.DatabaseInterface
+	switch v := db.(type) {
+	case *database.Database:
+		dbInterface = v
+	case *database.GormAdapter:
+		dbInterface = v
+	default:
+		panic("unsupported database type")
+	}
+
 	return &LoanService{
-		db: db,
+		db: dbInterface,
 	}
 }
 
 // 申請貸款
 func (s *LoanService) ApplyForLoan(userID int, amount float64, term int) (*models.LoanApplication, error) {
-	return s.db.ApplyForLoan(userID, amount, term)
+	return s.db.ApplyForLoan(uint(userID), amount, term)
 }
 
 // 獲取用戶貸款申請
 func (s *LoanService) GetUserLoanApplications(userID int) ([]*models.LoanApplication, error) {
-	return s.db.GetUserLoanApplications(userID)
+	return s.db.GetUserLoanApplications(uint(userID))
 }

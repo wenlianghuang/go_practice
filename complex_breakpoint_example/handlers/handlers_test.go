@@ -96,8 +96,8 @@ func TestTransactionHandler_Transfer(t *testing.T) {
 			},
 			transferMockFunc: func(fromUserID, toUserID int, amount float64, description string) (*models.Transaction, error) {
 				return &models.Transaction{
-					ID:          1,
-					UserID:      fromUserID,
+					ID:          uint(1),
+					UserID:      uint(fromUserID),
 					Amount:      amount,
 					Type:        "transfer",
 					Description: description,
@@ -143,8 +143,8 @@ func TestTransactionHandler_Transfer(t *testing.T) {
 			},
 			transferMockFunc: func(fromUserID, toUserID int, amount float64, description string) (*models.Transaction, error) {
 				return &models.Transaction{
-					ID:          1,
-					UserID:      fromUserID,
+					ID:          uint(1),
+					UserID:      uint(fromUserID),
 					Amount:      0,
 					Type:        "transfer",
 					Description: "",
@@ -192,8 +192,8 @@ func TestTransactionHandler_Transfer(t *testing.T) {
 			},
 			transferMockFunc: func(fromUserID, toUserID int, amount float64, description string) (*models.Transaction, error) {
 				return &models.Transaction{
-					ID:          2,
-					UserID:      fromUserID,
+					ID:          uint(2),
+					UserID:      uint(fromUserID),
 					Amount:      0.0,
 					Type:        "transfer",
 					Description: description,
@@ -213,8 +213,8 @@ func TestTransactionHandler_Transfer(t *testing.T) {
 			},
 			transferMockFunc: func(fromUserID, toUserID int, amount float64, description string) (*models.Transaction, error) {
 				return &models.Transaction{
-					ID:          3,
-					UserID:      fromUserID,
+					ID:          uint(3),
+					UserID:      uint(fromUserID),
 					Amount:      999999.99,
 					Type:        "transfer",
 					Description: description,
@@ -297,8 +297,8 @@ func TestTransactionHandler_Transfer_WrongMethod(t *testing.T) {
 	mockService := &mockTransactionService{
 		transferFunc: func(fromUserID, toUserID int, amount float64, description string) (*models.Transaction, error) {
 			return &models.Transaction{
-				ID:          1,
-				UserID:      fromUserID,
+				ID:          uint(1),
+				UserID:      uint(fromUserID),
 				Amount:      amount,
 				Type:        "transfer",
 				Description: description,
