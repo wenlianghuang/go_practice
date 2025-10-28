@@ -19,8 +19,6 @@ func NewUserService(db interface{}) *UserService {
 	// 类型断言
 	var dbInterface database.DatabaseInterface
 	switch v := db.(type) {
-	case *database.Database:
-		dbInterface = v
 	case *database.GormAdapter:
 		dbInterface = v
 	default:
@@ -60,8 +58,6 @@ type TransactionService struct {
 func NewTransactionService(db interface{}) *TransactionService {
 	var dbInterface database.DatabaseInterface
 	switch v := db.(type) {
-	case *database.Database:
-		dbInterface = v
 	case *database.GormAdapter:
 		dbInterface = v
 	default:
@@ -168,8 +164,6 @@ type LoanService struct {
 func NewLoanService(db interface{}) *LoanService {
 	var dbInterface database.DatabaseInterface
 	switch v := db.(type) {
-	case *database.Database:
-		dbInterface = v
 	case *database.GormAdapter:
 		dbInterface = v
 	default:
