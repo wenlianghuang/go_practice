@@ -28,6 +28,7 @@ func NewGormDatabase(databaseURL string) (*GormDatabase, error) {
 	gdb := &GormDatabase{db: db}
 
 	// 自動遷移
+	// 為了讓資料庫表結構自動與 model 結構保持同步，減少人為遺漏或 migrations 步驟過程中的錯誤
 	err = gdb.AutoMigrate()
 	if err != nil {
 		return nil, fmt.Errorf("failed to migrate database: %w", err)
