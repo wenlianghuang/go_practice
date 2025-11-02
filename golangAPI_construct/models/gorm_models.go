@@ -637,7 +637,7 @@ type UserGORM struct {
 	DeletedAt    gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
 
 	// 關聯
-	Books []BookGORM `gorm:"many2many:user_books;" json:"books,omitempty"`
+	Books []BookGORM `gorm:"many2many:user_books_gorm;" json:"books,omitempty"`
 }
 
 // TableName 指定表名

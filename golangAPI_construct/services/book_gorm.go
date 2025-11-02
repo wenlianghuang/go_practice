@@ -593,6 +593,16 @@ func (s *BookServiceGORM) RemoveBookFromUserFavorites(userID, bookID uint) error
 	return s.db.Where("user_id = ? AND book_id = ?", userID, bookID).Delete(&models.UserBookGORM{}).Error
 }
 
+// GetUsersByBook 獲取收藏特定書籍的用戶
+func (s *BookServiceGORM) GetUsersByBook(bookID uint) ([]models.UserGORM, error) {
+	var users []models.UserGORM
+	err := s.db.Model(&models.UserGORM{}).
+		Joins("JOIN user_books_gorm ON users_gorm.id = user_books_gorm.user_id").
+		Where("user_books_gorm.book_id = ?", bookID).
+		Find(&users).Error
+	return users, err
+}
+
 // GetDatabaseHealth 獲取數據庫健康狀態
 func (s *BookServiceGORM) GetDatabaseHealth() error {
 	sqlDB, err := s.db.DB()

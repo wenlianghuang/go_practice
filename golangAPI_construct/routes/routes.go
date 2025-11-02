@@ -84,6 +84,7 @@ func SetupRoutes() http.Handler {
 		logging.Logger.Fatal("[BOOT] ERROR: Expected GORM service but got different type")
 	}
 	gormHandler := handlers.NewGORMHandler(gormService)
+	userHandler := handlers.NewUserHandler(userService, gormService)
 
 	// 啟動時印出目前資料筆數
 	logging.Logger.Printf("[BOOT] Books count at start: %d", len(bookService.GetAllBooks()))
@@ -107,16 +108,21 @@ func SetupRoutes() http.Handler {
 			r.With(middleware.JWTAuthMiddleware(tokenStore)).Post("/refresh", authHandler.RefreshToken)
 		})
 
-		// 使用者查詢路由（需要 JWT 驗證）
+		// 使用者查詢與收藏路由（需要 JWT 驗證）
 		r.Route("/users", func(r chi.Router) {
 			r.Use(middleware.JWTAuthMiddleware(tokenStore))
 			r.Get("/by-username", authHandler.GetUserByUsername)
+			r.Get("/{userID}/favorites", userHandler.GetUserFavorites)
+			r.Post("/{userID}/favorites", userHandler.AddUserFavorite)
+			r.Delete("/{userID}/favorites/{bookID}", userHandler.RemoveUserFavorite)
 		})
 
 		// 受保護的書籍路由（需要 JWT 驗證）
 		r.Route("/books", func(r chi.Router) {
 			// 所有書籍相關路由都需要 JWT 認證
 			r.Use(middleware.JWTAuthMiddleware(tokenStore))
+
+			r.Get("/{id}/users", userHandler.GetUsersByBook)
 
 			// 如果緩存服務可用，為 GET 路由添加緩存
 			if cacheService != nil {
@@ -170,6 +176,7 @@ func SetupRoutes() http.Handler {
 			r.Get("/top-rated", gormHandler.GetTopRatedBooks)
 			r.Get("/recent", gormHandler.GetRecentBooks)
 			r.Get("/with-reviews", gormHandler.GetBooksWithReviews)
+			r.Get("/books/{bookID}/users", userHandler.GetUsersByBook)
 
 			// 分頁和批量操作
 			r.Get("/paginated", gormHandler.GetBooksWithPagination)
