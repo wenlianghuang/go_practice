@@ -9,40 +9,48 @@ import (
 	"golangAPI_construct/security"
 )
 
-// JWTAuthMiddleware 統一的 JWT 驗證中間件
-func JWTAuthMiddleware() func(http.Handler) http.Handler {
+// JWTAuthMiddleware 統一的 JWT 驗證中間件，支援 Token 黑名單
+func JWTAuthMiddleware(store security.TokenStore) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// 獲取 Authorization header
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {
 				responses.Fail(w, r, responses.NewAppError(http.StatusUnauthorized, "MISSING_AUTH_HEADER", "Authorization header is required"))
 				return
 			}
 
-			// 檢查 Bearer token 格式
 			if !strings.HasPrefix(authHeader, "Bearer ") {
 				responses.Fail(w, r, responses.NewAppError(http.StatusUnauthorized, "INVALID_AUTH_FORMAT", "Authorization header must start with 'Bearer '"))
 				return
 			}
 
-			// 提取 token
 			tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 			if tokenString == "" {
 				responses.Fail(w, r, responses.NewAppError(http.StatusUnauthorized, "EMPTY_TOKEN", "Token cannot be empty"))
 				return
 			}
 
-			// 驗證 token
 			claims, err := security.ValidateToken(tokenString)
 			if err != nil {
 				responses.Fail(w, r, responses.NewAppError(http.StatusUnauthorized, "INVALID_TOKEN", "Invalid or expired token"))
 				return
 			}
 
-			// 將用戶信息存儲到 context 中
+			if store != nil && claims.ID != "" {
+				revoked, err := store.IsRevoked(claims.ID)
+				if err != nil {
+					responses.Fail(w, r, responses.NewAppError(http.StatusInternalServerError, "TOKEN_CHECK_FAILED", "Failed to verify token status"))
+					return
+				}
+				if revoked {
+					responses.Fail(w, r, responses.NewAppError(http.StatusUnauthorized, "TOKEN_REVOKED", "Token has been revoked"))
+					return
+				}
+			}
+
 			ctx := context.WithValue(r.Context(), "user", claims.Username)
 			ctx = context.WithValue(ctx, "user_id", claims.Subject)
+			ctx = context.WithValue(ctx, "roles", claims.Roles)
 			ctx = context.WithValue(ctx, "claims", claims)
 
 			next.ServeHTTP(w, r.WithContext(ctx))
@@ -51,7 +59,7 @@ func JWTAuthMiddleware() func(http.Handler) http.Handler {
 }
 
 // OptionalJWTAuthMiddleware 可選的 JWT 驗證中間件（用於不需要強制登入的端點）
-func OptionalJWTAuthMiddleware() func(http.Handler) http.Handler {
+func OptionalJWTAuthMiddleware(store security.TokenStore) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			authHeader := r.Header.Get("Authorization")
@@ -72,31 +80,48 @@ func OptionalJWTAuthMiddleware() func(http.Handler) http.Handler {
 				return
 			}
 
+			if store != nil && claims.ID != "" {
+				revoked, err := store.IsRevoked(claims.ID)
+				if err != nil || revoked {
+					next.ServeHTTP(w, r)
+					return
+				}
+			}
+
 			ctx := context.WithValue(r.Context(), "user", claims.Username)
 			ctx = context.WithValue(ctx, "user_id", claims.Subject)
+			ctx = context.WithValue(ctx, "roles", claims.Roles)
 			ctx = context.WithValue(ctx, "claims", claims)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 }
 
-// RequireRole 基於角色的權限檢查中間件（為未來擴展預留）
+// RequireRole 基於角色的權限檢查中間件
 func RequireRole(requiredRole string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// 首先確保用戶已通過 JWT 驗證
-			user := r.Context().Value("user")
-			if user == nil {
+			if r.Context().Value("user") == nil {
 				responses.Fail(w, r, responses.NewAppError(http.StatusUnauthorized, "NOT_AUTHENTICATED", "User not authenticated"))
 				return
 			}
 
-			// 這裡可以添加角色檢查邏輯
-			// 目前只是示例，實際實現需要從資料庫或 token 中獲取用戶角色
-			_ = user
-			_ = requiredRole
+			roles, _ := r.Context().Value("roles").([]string)
+			if !containsRole(roles, requiredRole) {
+				responses.Fail(w, r, responses.NewAppError(http.StatusForbidden, "FORBIDDEN", "Insufficient role"))
+				return
+			}
 
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+func containsRole(roles []string, required string) bool {
+	for _, role := range roles {
+		if role == required {
+			return true
+		}
+	}
+	return false
 }

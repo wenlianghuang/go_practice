@@ -2,12 +2,33 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
+	"golangAPI_construct/models"
 	"golangAPI_construct/responses"
 	"golangAPI_construct/security"
+	"golangAPI_construct/services"
+
+	"gorm.io/gorm"
 )
+
+const defaultTokenTTL = 2 * time.Hour
+
+type AuthHandler struct {
+	users      *services.UserService
+	tokenStore security.TokenStore
+}
+
+func NewAuthHandler(users *services.UserService, tokenStore security.TokenStore) *AuthHandler {
+	return &AuthHandler{
+		users:      users,
+		tokenStore: tokenStore,
+	}
+}
 
 type LoginRequest struct {
 	Username string `json:"username" binding:"required"`
@@ -15,78 +36,172 @@ type LoginRequest struct {
 }
 
 type LoginResponse struct {
-	Token     string `json:"token"`
-	ExpiresAt int64  `json:"expires_at"`
-	User      string `json:"user"`
+	Token     string   `json:"token"`
+	ExpiresAt int64    `json:"expires_at"`
+	User      string   `json:"user"`
+	Roles     []string `json:"roles"`
 }
 
-// DEMO 用：硬編碼一個 bcrypt 雜湊（密碼為 "password"）
-var demoUser = struct {
-	Username     string
-	PasswordHash string
-}{
-	Username:     "Matt",
-	PasswordHash: "$2a$10$AQuMpFYbHBfGx2F2bS0.x.Nm.YTFzwjHaznp9uUCN9V5t3sweZ4w6", // 請用 security.HashPassword("password") 產生
+type RegisterRequest struct {
+	Username  string `json:"username"`
+	Email     string `json:"email"`
+	Password  string `json:"password"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
 }
 
-// Login 處理用戶登入
-func Login(w http.ResponseWriter, r *http.Request) {
+type RegisterResponse struct {
+	ID        uint     `json:"id"`
+	Username  string   `json:"username"`
+	Email     string   `json:"email"`
+	Roles     []string `json:"roles"`
+	CreatedAt int64    `json:"created_at"`
+}
+
+type UserDetailsResponse struct {
+	ID        uint       `json:"id"`
+	Username  string     `json:"username"`
+	Email     string     `json:"email"`
+	Roles     []string   `json:"roles"`
+	FirstName string     `json:"first_name"`
+	LastName  string     `json:"last_name"`
+	IsActive  bool       `json:"is_active"`
+	LastLogin *time.Time `json:"last_login,omitempty"`
+	CreatedAt int64      `json:"created_at"`
+	UpdatedAt int64      `json:"updated_at"`
+}
+
+func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		responses.Fail(w, r, responses.NewAppError(http.StatusBadRequest, "INVALID_REQUEST", "Invalid request body"))
 		return
 	}
 
-	// 驗證用戶名和密碼 - 修復函數名
-	if req.Username != demoUser.Username || !security.CheckPassword(demoUser.PasswordHash, req.Password) {
+	user, err := h.users.FindByUsername(req.Username)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			responses.Fail(w, r, responses.NewAppError(http.StatusUnauthorized, "INVALID_CREDENTIALS", "Invalid username or password"))
+			return
+		}
+		responses.Fail(w, r, responses.NewAppError(http.StatusInternalServerError, "USER_LOOKUP_FAILED", "Failed to lookup user"))
+		return
+	}
+
+	if !security.CheckPassword(user.PasswordHash, req.Password) {
 		responses.Fail(w, r, responses.NewAppError(http.StatusUnauthorized, "INVALID_CREDENTIALS", "Invalid username or password"))
 		return
 	}
 
-	// 生成 JWT token
-	ttl := 2 * time.Hour
-	token, err := security.GenerateToken(req.Username, ttl)
+	roles := services.ParseRoles(user.Roles)
+	token, err := security.GenerateTokenWithClaims(user.Username, user.ID, roles, defaultTokenTTL)
 	if err != nil {
 		responses.Fail(w, r, responses.NewAppError(http.StatusInternalServerError, "TOKEN_GENERATION_FAILED", "Failed to generate token"))
 		return
 	}
 
-	// 返回登入響應
 	responses.Success(w, r, http.StatusOK, LoginResponse{
 		Token:     token,
-		ExpiresAt: time.Now().Add(ttl).Unix(),
-		User:      req.Username,
+		ExpiresAt: time.Now().Add(defaultTokenTTL).Unix(),
+		User:      user.Username,
+		Roles:     roles,
 	})
 }
 
-// Logout 處理用戶登出（目前只是示例，實際實現需要 token 黑名單）
-func Logout(w http.ResponseWriter, r *http.Request) {
-	// 在實際應用中，這裡應該將 token 加入黑名單
-	// 或者使用 Redis 來管理 token 狀態
+func (h *AuthHandler) SignUp(w http.ResponseWriter, r *http.Request) {
+	var req RegisterRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		responses.Fail(w, r, responses.NewAppError(http.StatusBadRequest, "INVALID_REQUEST", "Invalid request body"))
+		return
+	}
+
+	req.Username = strings.TrimSpace(req.Username)
+	req.Email = strings.TrimSpace(req.Email)
+	req.FirstName = strings.TrimSpace(req.FirstName)
+	req.LastName = strings.TrimSpace(req.LastName)
+
+	if req.Username == "" || req.Email == "" || req.Password == "" {
+		responses.Fail(w, r, responses.NewAppError(http.StatusBadRequest, "VALIDATION_ERROR", "username, email and password are required"))
+		return
+	}
+
+	if existing, err := h.users.FindByUsername(req.Username); err == nil && existing != nil {
+		responses.Fail(w, r, responses.NewAppError(http.StatusConflict, "USERNAME_TAKEN", "Username already exists"))
+		return
+	} else if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		responses.Fail(w, r, responses.NewAppError(http.StatusInternalServerError, "USER_LOOKUP_FAILED", "Failed to lookup user"))
+		return
+	}
+
+	if existing, err := h.users.FindByEmail(req.Email); err == nil && existing != nil {
+		responses.Fail(w, r, responses.NewAppError(http.StatusConflict, "EMAIL_TAKEN", "Email already exists"))
+		return
+	} else if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		responses.Fail(w, r, responses.NewAppError(http.StatusInternalServerError, "USER_LOOKUP_FAILED", "Failed to lookup user"))
+		return
+	}
+
+	hashed, err := security.HashPassword(req.Password)
+	if err != nil {
+		responses.Fail(w, r, responses.NewAppError(http.StatusInternalServerError, "HASH_FAILED", "Failed to hash password"))
+		return
+	}
+
+	user := models.UserGORM{
+		Username:     req.Username,
+		Email:        req.Email,
+		PasswordHash: hashed,
+		Roles:        "user",
+		FirstName:    req.FirstName,
+		LastName:     req.LastName,
+		IsActive:     true,
+	}
+	created, err := h.users.CreateUser(user)
+	if err != nil {
+		responses.Fail(w, r, responses.NewAppError(http.StatusInternalServerError, "USER_CREATE_FAILED", "Failed to create user"))
+		return
+	}
+
+	responses.Success(w, r, http.StatusCreated, RegisterResponse{
+		ID:        created.ID,
+		Username:  created.Username,
+		Email:     created.Email,
+		Roles:     services.ParseRoles(created.Roles),
+		CreatedAt: created.CreatedAt.Unix(),
+	})
+}
+
+func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	claims, ok := r.Context().Value("claims").(*security.Claims)
+	if !ok || claims == nil {
+		responses.Fail(w, r, responses.NewAppError(http.StatusUnauthorized, "NOT_AUTHENTICATED", "User not authenticated"))
+		return
+	}
+
+	if h.tokenStore != nil && claims.ID != "" && claims.ExpiresAt != nil {
+		_ = h.tokenStore.Revoke(claims.ID, claims.ExpiresAt.Time)
+	}
 
 	responses.Success(w, r, http.StatusOK, map[string]string{
 		"message": "Successfully logged out",
 	})
 }
 
-// RefreshToken 刷新 JWT token
-func RefreshToken(w http.ResponseWriter, r *http.Request) {
-	// 從 context 中獲取當前用戶信息
-	user := r.Context().Value("user")
-	if user == nil {
+func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
+	claims, ok := r.Context().Value("claims").(*security.Claims)
+	if !ok || claims == nil {
 		responses.Fail(w, r, responses.NewAppError(http.StatusUnauthorized, "NOT_AUTHENTICATED", "User not authenticated"))
 		return
 	}
 
-	username, ok := user.(string)
-	if !ok {
-		responses.Fail(w, r, responses.NewAppError(http.StatusInternalServerError, "INVALID_USER_DATA", "Invalid user data"))
-		return
+	var userID uint64
+	if claims.Subject != "" {
+		if id, err := strconv.ParseUint(claims.Subject, 10, 64); err == nil {
+			userID = id
+		}
 	}
 
-	// 生成新的 token
-	ttl := 2 * time.Hour
-	token, err := security.GenerateToken(username, ttl)
+	token, err := security.GenerateTokenWithClaims(claims.Username, uint(userID), claims.Roles, defaultTokenTTL)
 	if err != nil {
 		responses.Fail(w, r, responses.NewAppError(http.StatusInternalServerError, "TOKEN_GENERATION_FAILED", "Failed to generate token"))
 		return
@@ -94,7 +209,39 @@ func RefreshToken(w http.ResponseWriter, r *http.Request) {
 
 	responses.Success(w, r, http.StatusOK, LoginResponse{
 		Token:     token,
-		ExpiresAt: time.Now().Add(ttl).Unix(),
-		User:      username,
+		ExpiresAt: time.Now().Add(defaultTokenTTL).Unix(),
+		User:      claims.Username,
+		Roles:     claims.Roles,
+	})
+}
+
+func (h *AuthHandler) GetUserByUsername(w http.ResponseWriter, r *http.Request) {
+	username := strings.TrimSpace(r.URL.Query().Get("username"))
+	if username == "" {
+		responses.Fail(w, r, responses.NewAppError(http.StatusBadRequest, "MISSING_USERNAME", "username query parameter is required"))
+		return
+	}
+
+	user, err := h.users.FindByUsername(username)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			responses.Fail(w, r, responses.NewAppError(http.StatusNotFound, "USER_NOT_FOUND", "User not found"))
+			return
+		}
+		responses.Fail(w, r, responses.NewAppError(http.StatusInternalServerError, "USER_LOOKUP_FAILED", "Failed to lookup user"))
+		return
+	}
+
+	responses.Success(w, r, http.StatusOK, UserDetailsResponse{
+		ID:        user.ID,
+		Username:  user.Username,
+		Email:     user.Email,
+		Roles:     services.ParseRoles(user.Roles),
+		FirstName: user.FirstName,
+		LastName:  user.LastName,
+		IsActive:  user.IsActive,
+		LastLogin: user.LastLogin,
+		CreatedAt: user.CreatedAt.Unix(),
+		UpdatedAt: user.UpdatedAt.Unix(),
 	})
 }

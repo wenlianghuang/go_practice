@@ -190,20 +190,22 @@ func SeedGORM(db *gorm.DB) error {
 	// 創建初始用戶
 	users := []models.UserGORM{
 		{
-			Username:  "admin",
-			Email:     "admin@example.com",
-			Password:  "$2a$10$AQuMpFYbHBfGx2F2bS0.x.Nm.YTFzwjHaznp9uUCN9V5t3sweZ4w6", // password: "password"
-			FirstName: "Admin",
-			LastName:  "User",
-			IsActive:  true,
+			Username:     "admin",
+			Email:        "admin@example.com",
+			PasswordHash: "$2a$10$AQuMpFYbHBfGx2F2bS0.x.Nm.YTFzwjHaznp9uUCN9V5t3sweZ4w6", // password: "password"
+			Roles:        "admin,editor",
+			FirstName:    "Admin",
+			LastName:     "User",
+			IsActive:     true,
 		},
 		{
-			Username:  "reader",
-			Email:     "reader@example.com",
-			Password:  "$2a$10$AQuMpFYbHBfGx2F2bS0.x.Nm.YTFzwjHaznp9uUCN9V5t3sweZ4w6", // password: "password"
-			FirstName: "Book",
-			LastName:  "Reader",
-			IsActive:  true,
+			Username:     "reader",
+			Email:        "reader@example.com",
+			PasswordHash: "$2a$10$AQuMpFYbHBfGx2F2bS0.x.Nm.YTFzwjHaznp9uUCN9V5t3sweZ4w6", // password: "password"
+			Roles:        "user",
+			FirstName:    "Book",
+			LastName:     "Reader",
+			IsActive:     true,
 		},
 	}
 

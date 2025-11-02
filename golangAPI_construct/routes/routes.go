@@ -1,14 +1,16 @@
 package routes
 
 import (
+	"net/http"
+	"os"
+
 	"golangAPI_construct/cache"
 	"golangAPI_construct/data"
 	"golangAPI_construct/handlers"
 	"golangAPI_construct/logging"
 	"golangAPI_construct/middleware"
+	"golangAPI_construct/security"
 	"golangAPI_construct/services"
-	"net/http"
-	"os"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -70,8 +72,11 @@ func SetupRoutes() http.Handler {
 		logging.Logger.Print("[CACHE] Cache service initialized successfully")
 	}
 
+	userService := services.NewUserService(gormDB)
+	tokenStore := security.NewInMemoryTokenStore()
 	bookHandler := handlers.NewBookHandler(bookService)
 	metricsHandler := handlers.NewMetricsHandler()
+	authHandler := handlers.NewAuthHandler(userService, tokenStore)
 
 	// 創建 GORM 專用處理器（總是可用）
 	gormService, ok := bookService.(*services.BookServiceGORM)
@@ -96,15 +101,22 @@ func SetupRoutes() http.Handler {
 	r.Route("/api/v1", func(r chi.Router) {
 		// 認證相關路由（不需要 JWT 驗證）
 		r.Route("/auth", func(r chi.Router) {
-			r.Post("/login", handlers.Login)
-			r.With(middleware.JWTAuthMiddleware()).Post("/logout", handlers.Logout)
-			r.With(middleware.JWTAuthMiddleware()).Post("/refresh", handlers.RefreshToken)
+			r.Post("/signup", authHandler.SignUp)
+			r.Post("/login", authHandler.Login)
+			r.With(middleware.JWTAuthMiddleware(tokenStore)).Post("/logout", authHandler.Logout)
+			r.With(middleware.JWTAuthMiddleware(tokenStore)).Post("/refresh", authHandler.RefreshToken)
+		})
+
+		// 使用者查詢路由（需要 JWT 驗證）
+		r.Route("/users", func(r chi.Router) {
+			r.Use(middleware.JWTAuthMiddleware(tokenStore))
+			r.Get("/by-username", authHandler.GetUserByUsername)
 		})
 
 		// 受保護的書籍路由（需要 JWT 驗證）
 		r.Route("/books", func(r chi.Router) {
 			// 所有書籍相關路由都需要 JWT 認證
-			r.Use(middleware.JWTAuthMiddleware())
+			r.Use(middleware.JWTAuthMiddleware(tokenStore))
 
 			// 如果緩存服務可用，為 GET 路由添加緩存
 			if cacheService != nil {
@@ -142,7 +154,7 @@ func SetupRoutes() http.Handler {
 
 		// GORM 專用路由（總是可用，需要認證）
 		r.Route("/gorm", func(r chi.Router) {
-			r.Use(middleware.JWTAuthMiddleware())
+			r.Use(middleware.JWTAuthMiddleware(tokenStore))
 
 			// 搜索和統計功能（增強版）
 			r.Get("/search", gormHandler.SearchBooks)                  // 增強版搜索，支持多條件篩選

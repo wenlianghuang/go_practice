@@ -623,17 +623,18 @@ type BookPatchGORM struct {
 
 // UserGORM 用戶模型（用於擴展功能）
 type UserGORM struct {
-	ID        uint           `gorm:"primaryKey" json:"id"`
-	Username  string         `gorm:"size:50;uniqueIndex;not null" json:"username"`
-	Email     string         `gorm:"size:100;uniqueIndex;not null" json:"email"`
-	Password  string         `gorm:"size:255;not null" json:"-"` // 不在 JSON 中顯示密碼
-	FirstName string         `gorm:"size:50" json:"first_name"`
-	LastName  string         `gorm:"size:50" json:"last_name"`
-	IsActive  bool           `gorm:"default:true" json:"is_active"`
-	LastLogin *time.Time     `json:"last_login,omitempty"`
-	CreatedAt time.Time      `json:"created_at"`
-	UpdatedAt time.Time      `json:"updated_at"`
-	DeletedAt gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
+	ID           uint           `gorm:"primaryKey" json:"id"`
+	Username     string         `gorm:"size:50;uniqueIndex;not null" json:"username"`
+	Email        string         `gorm:"size:100;uniqueIndex;not null" json:"email"`
+	PasswordHash string         `gorm:"size:255;not null" json:"-"` // 不在 JSON 中顯示密碼
+	Roles        string         `gorm:"size:120;default:'user'" json:"roles"`
+	FirstName    string         `gorm:"size:50" json:"first_name"`
+	LastName     string         `gorm:"size:50" json:"last_name"`
+	IsActive     bool           `gorm:"default:true" json:"is_active"`
+	LastLogin    *time.Time     `json:"last_login,omitempty"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
+	DeletedAt    gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
 
 	// 關聯
 	Books []BookGORM `gorm:"many2many:user_books;" json:"books,omitempty"`
