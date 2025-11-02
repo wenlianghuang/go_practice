@@ -16,6 +16,16 @@ var (
 	ErrBookNotFound = errors.New("book not found")
 )
 
+func hasPrivilegedRole(roles []string) bool {
+	for _, role := range roles {
+		switch strings.TrimSpace(strings.ToLower(role)) {
+		case "admin", "editor":
+			return true
+		}
+	}
+	return false
+}
+
 // BookServiceInterface 書籍服務接口
 // 定義所有書籍相關操作的標準接口
 type BookServiceInterface interface {
@@ -27,6 +37,8 @@ type BookServiceInterface interface {
 	PatchBook(id string, patch models.BookPatch) (*models.Book, error)
 	DeleteBook(id string) (*models.Book, error)
 	GetBooksCount() int
+	GetBooksForUser(userID uint, roles []string) ([]models.Book, error)
+	GetBookForUser(id string, userID uint, roles []string) (*models.Book, error)
 }
 
 // BookServiceGORM GORM 版本的書籍服務
@@ -601,6 +613,51 @@ func (s *BookServiceGORM) GetUsersByBook(bookID uint) ([]models.UserGORM, error)
 		Where("user_books_gorm.book_id = ?", bookID).
 		Find(&users).Error
 	return users, err
+}
+
+// GetBooksForUser 根據使用者權限獲取可見的書籍列表
+func (s *BookServiceGORM) GetBooksForUser(userID uint, roles []string) ([]models.Book, error) {
+	if hasPrivilegedRole(roles) {
+		return s.GetAllBooks(), nil
+	}
+
+	var booksGORM []models.BookGORM
+	if err := s.db.Joins("JOIN user_books_gorm ON books_gorm.id = user_books_gorm.book_id").
+		Where("user_books_gorm.user_id = ?", userID).
+		Find(&booksGORM).Error; err != nil {
+		return nil, err
+	}
+
+	books := make([]models.Book, len(booksGORM))
+	for i, bookGORM := range booksGORM {
+		books[i] = bookGORM.ToBook()
+	}
+	return books, nil
+}
+
+// GetBookForUser 根據使用者權限獲取單本書籍
+func (s *BookServiceGORM) GetBookForUser(id string, userID uint, roles []string) (*models.Book, error) {
+	if hasPrivilegedRole(roles) {
+		return s.GetBookByID(id)
+	}
+
+	bookID, err := strconv.ParseUint(id, 10, 64)
+	if err != nil {
+		return nil, ErrBookNotFound
+	}
+
+	var bookGORM models.BookGORM
+	if err := s.db.Joins("JOIN user_books_gorm ON books_gorm.id = user_books_gorm.book_id").
+		Where("books_gorm.id = ? AND user_books_gorm.user_id = ?", uint(bookID), userID).
+		First(&bookGORM).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrBookNotFound
+		}
+		return nil, err
+	}
+
+	book := bookGORM.ToBook()
+	return &book, nil
 }
 
 // GetDatabaseHealth 獲取數據庫健康狀態

@@ -115,6 +115,7 @@ func SetupRoutes() http.Handler {
 			r.Get("/{userID}/favorites", userHandler.GetUserFavorites)
 			r.Post("/{userID}/favorites", userHandler.AddUserFavorite)
 			r.Delete("/{userID}/favorites/{bookID}", userHandler.RemoveUserFavorite)
+			r.Get("/account/{username}/favorites", userHandler.GetUserFavoritesByUsername)
 		})
 
 		// 受保護的書籍路由（需要 JWT 驗證）

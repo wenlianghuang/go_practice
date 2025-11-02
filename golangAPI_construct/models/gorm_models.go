@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 	"time"
 
@@ -37,7 +38,7 @@ func (BookGORM) TableName() string {
 // ToBook 轉換為原始的 Book 模型（用於向後兼容）
 func (b *BookGORM) ToBook() Book {
 	return Book{
-		ID:        string(rune(b.ID)),
+		ID:        strconv.FormatUint(uint64(b.ID), 10),
 		Title:     b.Title,
 		Author:    b.Author,
 		Price:     b.Price,

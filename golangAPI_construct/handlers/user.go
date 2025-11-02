@@ -2,13 +2,16 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"golangAPI_construct/responses"
 	"golangAPI_construct/services"
 
 	"github.com/go-chi/chi/v5"
+	"gorm.io/gorm"
 )
 
 type UserHandler struct {
@@ -126,5 +129,43 @@ func (h *UserHandler) GetUsersByBook(w http.ResponseWriter, r *http.Request) {
 		"book_id": bookID,
 		"count":   len(users),
 		"users":   users,
+	})
+}
+
+func (h *UserHandler) GetUserFavoritesByUsername(w http.ResponseWriter, r *http.Request) {
+	username := chi.URLParam(r, "username")
+	if username == "" {
+		responses.Fail(w, r, responses.NewAppError(http.StatusBadRequest, "MISSING_USERNAME", "username is required"))
+		return
+	}
+
+	currentUser, _ := r.Context().Value("user").(string)
+	roles, _ := r.Context().Value("roles").([]string)
+	if !strings.EqualFold(currentUser, username) && !hasPrivilegedRole(roles) {
+		responses.Fail(w, r, responses.NewAppError(http.StatusForbidden, "FORBIDDEN", "Insufficient permission"))
+		return
+	}
+
+	user, err := h.users.FindByUsername(username)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			responses.Fail(w, r, responses.NewAppError(http.StatusNotFound, "USER_NOT_FOUND", "User not found"))
+			return
+		}
+		responses.Fail(w, r, responses.NewAppError(http.StatusInternalServerError, "USER_LOOKUP_FAILED", "Failed to lookup user"))
+		return
+	}
+
+	books, err := h.bookGorm.GetBooksByUserFavorites(user.ID)
+	if err != nil {
+		responses.Fail(w, r, responses.NewAppError(http.StatusInternalServerError, "FAVORITES_FETCH_FAILED", "Failed to fetch user favorites"))
+		return
+	}
+
+	responses.Success(w, r, http.StatusOK, map[string]interface{}{
+		"user_id":  user.ID,
+		"username": user.Username,
+		"count":    len(books),
+		"books":    books,
 	})
 }
