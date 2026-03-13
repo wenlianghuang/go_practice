@@ -30,10 +30,11 @@
 - ✅ 使用 `atomic.Uint32` 記錄成功/跳過/超時數
 - ✅ 無鎖操作，性能更好
 
-### 5. 超時控制（Context）
-- ✅ 設定 2 秒總限時
-- ✅ 超時則所有工人停止
-- ✅ 使用 `context.WithTimeout`
+### 5. 超時控制與重試（Context + Retry）
+- ✅ 設定 2 秒**全局限時**（Global Timeout），超時則所有工人停止
+- ✅ 設定 500ms **單次任務限時**（Local Timeout），超時則觸發重試
+- ✅ 實作重試機制：當單次下載超時，最多重試 3 次
+- ✅ 區分全局取消（停止所有）與單次超時（僅重試當前任務）
 
 ### 6. 生命週期（WaitGroup）
 - ✅ 確保所有工人完成後才印出最終報表
@@ -90,7 +91,10 @@ go run main.go DownloaderWithLongTimeout
 📥 工人 3: 開始下載 [https://example.com/page2]
 ✅ 工人 3: 完成 [https://example.com/page2] (8104 bytes)
 ⏭️  工人 5: 跳過 [https://example.com/page2]（已下載）
-⏰ 工人 1: 下載 [https://example.com/page14] 超時
+🐢 工人 1: 下載 [https://example.com/page14] 太慢 (超過 500ms)
+🔄 工人 1: 重試 [https://example.com/page14] (第 1/3 次)
+✅ 工人 1: 完成 [https://example.com/page14] (5500 bytes)
+⏰ 工人 4: 下載 [https://example.com/page10] 停止 (全局超時)
 👷 工人 2 完成所有任務
 
 ============================================================
@@ -100,11 +104,11 @@ go run main.go DownloaderWithLongTimeout
 👷 工人數量: 5
 📋 總任務數: 20
 
-✅ 成功下載: 15 個網址
-⏭️  跳過重複: 4 個網址
-⏰ 超時任務: 1 個
-📊 總流量: 92.24 KB
-📈 平均大小: 6.15 KB/個
+✅ 成功下載: 7 個網址
+⏭️  跳過重複: 3 個網址
+⏰ 超時任務: 11 個
+📊 總流量: 44.80 KB
+📈 平均大小: 6.40 KB/個
 
 🔑 使用的技術：
    ✓ Worker Pool: 5 個固定工人
@@ -243,25 +247,49 @@ success := dm.successCount.Load()
 - 簡單的數字累加不需要 Mutex（性能更好）
 - `Add()` 和 `Load()` 都是原子操作（thread-safe）
 
-### 4. 超時控制（Context）
+### 4. 進階超時控制（全局 vs 局部）
+
+我們同時使用了兩個 Context 來處理不同的超時場景：
+
+1. **全局 Context (`ctx`)**：控制整個程式的生命週期（例如：使用者取消、總執行時間限制）。
+2. **任務 Context (`taskCtx`)**：控制單個任務的執行時間（例如：單次下載太慢）。
 
 ```go
-// 建立 2 秒超時的 Context
+// 1. 全局 Context（2秒總限時）
 ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-defer cancel()
 
-// 在下載時檢查超時
-select {
-case <-time.After(downloadTime):
-    return bytes, nil  // 下載完成
-case <-ctx.Done():
-    return 0, ctx.Err()  // 超時
+// 2. 任務 Context（500ms 單次限時）
+taskCtx, cancel := context.WithTimeout(ctx, 500*time.Millisecond)
+```
+
+**重試機制的實作：**
+
+```go
+for i := 0; i <= maxRetries; i++ {
+    // 使用任務 Context 進行下載
+    bytes, err := simulateDownload(taskCtx, task.URL)
+    
+    if err == nil {
+        break // 成功，跳出迴圈
+    }
+
+    // 錯誤處理分流
+    if ctx.Err() != nil {
+        // 情況 A：全局超時或取消 -> 必須立刻停止所有工作
+        return 
+    }
+    
+    if err == context.DeadlineExceeded {
+        // 情況 B：單次任務超時 -> 可以重試
+        fmt.Println("🐢 下載太慢，準備重試...")
+        continue
+    }
 }
 ```
 
-**Context 的作用：**
-- 統一控制所有 Goroutine 的生命週期
-- 超時時自動通知所有工人停止
+**為什麼要區分？**
+- 如果是 `ctx.Err()`，代表使用者不想等了，或者總時間到了，這時候重試沒有意義，應該直接退出。
+- 如果只是 `taskCtx` 超時，可能是網路波動，這時候重試是有意義的。
 
 ### 5. Worker 生命週期
 
@@ -344,6 +372,75 @@ func downloadWorker(...) {
 wg.Wait()
 ```
 
+### 4. Context.Err() 的使用
+
+Context 提供兩種錯誤類型來表示結束原因：
+
+```go
+// 檢查 Context 為何結束
+select {
+case <-ctx.Done():
+    err := ctx.Err()
+    if err == context.DeadlineExceeded {
+        // 超時：達到設定的時限
+        fmt.Println("⏰ 任務超時！")
+    } else if err == context.Canceled {
+        // 取消：主動調用 cancel()
+        fmt.Println("🚫 任務被取消！")
+    }
+}
+```
+
+**完整的錯誤處理範例：**
+
+```go
+// 在下載函數中
+bytes, err := simulateDownload(ctx, url)
+if err != nil {
+    if err == context.DeadlineExceeded {
+        fmt.Printf("⏰ 下載超時 (DeadlineExceeded)\n")
+    } else if err == context.Canceled {
+        fmt.Printf("🚫 下載被取消 (Canceled)\n")
+    } else {
+        fmt.Printf("❌ 下載失敗: %v\n", err)
+    }
+    return
+}
+```
+
+**在 Worker 中的使用：**
+
+```go
+case <-ctx.Done():
+    // 檢查具體原因
+    if ctx.Err() == context.DeadlineExceeded {
+        fmt.Printf("⏰ 工人 %d: 超時，停止工作\n", id)
+    } else if ctx.Err() == context.Canceled {
+        fmt.Printf("🚫 工人 %d: 被取消，停止工作\n", id)
+    }
+    return
+```
+
+**為什麼要區分錯誤類型？**
+
+1. **DeadlineExceeded（超時）**
+   - 表示系統資源不足或任務太慢
+   - 可能需要調整超時時間或優化代碼
+   - 在生產環境中需要記錄和監控
+
+2. **Canceled（取消）**
+   - 表示主動停止（例如用戶取消、程序關閉）
+   - 這是正常行為，不是錯誤
+   - 不需要告警
+
+**實際輸出示例：**
+
+```
+⏰ 工人 3: 下載 [page10] 超時 (DeadlineExceeded)
+⏰ 工人 1: 收到超時信號 (DeadlineExceeded)，停止工作
+🚫 工人 2: 收到取消信號 (Canceled)，停止工作
+```
+
 ## 🎓 學習重點
 
 ### 併發安全
@@ -366,6 +463,25 @@ wg.Wait()
 2. **Select 的威力**
    - 同時監聽多個 channel
    - 實現超時、取消等複雜邏輯
+
+3. **Context.Err() 最佳實踐**
+   - 總是檢查 `ctx.Err()` 來了解為何結束
+   - 區分 `DeadlineExceeded` 和 `Canceled`
+   - 根據不同錯誤類型採取不同行動
+   
+   ```go
+   // ✅ 良好實踐
+   if err := ctx.Err(); err != nil {
+       switch err {
+       case context.DeadlineExceeded:
+           // 記錄超時，可能需要調整策略
+           log.Warn("Task timeout")
+       case context.Canceled:
+           // 正常取消，不需要告警
+           log.Info("Task canceled")
+       }
+   }
+   ```
 
 ### Worker Pool 模式
 
@@ -481,7 +597,26 @@ case <-ctx.Done():
 }
 ```
 
-### 4. WaitGroup 計數錯誤
+### 4. 忘記檢查 Global Context
+
+在實作重試機制時，容易只檢查任務的錯誤，而忽略了全局狀態：
+
+```go
+// ❌ 危險：如果全局已經超時，這裡還會繼續傻傻重試
+if err != nil {
+    continue // 重試
+}
+
+// ✅ 正確：優先檢查全局 Context
+if ctx.Err() != nil {
+    return // 全局結束，立刻停止
+}
+if err != nil {
+    continue // 只有在全局還有效時才重試
+}
+```
+
+### 5. WaitGroup 計數錯誤
 
 ```go
 // ❌ 錯誤：在 Goroutine 內 Add

@@ -92,6 +92,10 @@ func downloadWorker(
 ) {
 	defer wg.Done()
 
+	// 設定單次任務的超時時間（比模擬的最高延遲 800ms 短，觸發重試）
+	const taskTimeout = 500 * time.Millisecond
+	const maxRetries = 3
+
 	for {
 		select {
 		case task, ok := <-tasks:
@@ -112,26 +116,72 @@ func downloadWorker(
 				continue
 			}
 
-			// 🎯 到這裡表示已經成功佔位，可以安心下載
-			// 其他工人不可能同時下載相同的網址
-			fmt.Printf("📥 工人 %d: 開始下載 [%s]\n", id, task.URL)
-			bytes, err := simulateDownload(ctx, task.URL)
+			// 🎯 開始下載流程（含重試機制）
+			// 到這裡表示已經成功佔位，可以安心下載
+			var success bool
+			for i := 0; i <= maxRetries; i++ {
+				// 建立單次下載的 Context，用來控制單次請求的超時（例如網路卡住）
+				taskCtx, cancel := context.WithTimeout(ctx, taskTimeout)
 
-			if err != nil {
-				// 超時或取消
-				dm.timeoutCount.Add(1)
-				fmt.Printf("⏰ 工人 %d: 下載 [%s] 超時\n", id, task.URL)
-				return // 超時後工人退出
+				if i > 0 {
+					fmt.Printf("🔄 工人 %d: 重試 [%s] (第 %d/%d 次)\n", id, task.URL, i, maxRetries)
+				} else {
+					fmt.Printf("📥 工人 %d: 開始下載 [%s]\n", id, task.URL)
+				}
+
+				bytes, err := simulateDownload(taskCtx, task.URL)
+				cancel() // 釋放子 Context
+
+				if err == nil {
+					// 下載成功（網址已在 CheckAndMark 時標記）
+					dm.totalBytes.Add(uint64(bytes))
+					dm.successCount.Add(1)
+					fmt.Printf("✅ 工人 %d: 完成 [%s] (%d bytes)\n", id, task.URL, bytes)
+					success = true
+					break // 跳出重試迴圈
+				}
+
+				// 處理錯誤
+				// 1. 檢查是否是「全局」Context 被取消/超時（優先級最高）
+				if ctx.Err() != nil {
+					// 全局 Context 結束，代表必須立刻停止整個程式或工人
+					if ctx.Err() == context.Canceled {
+						fmt.Printf("🚫 工人 %d: 下載 [%s] 被取消 (使用者停止)\n", id, task.URL)
+					} else {
+						fmt.Printf("⏰ 工人 %d: 下載 [%s] 停止 (全局超時)\n", id, task.URL)
+					}
+					return // 直接退出工人
+				}
+
+				// 2. 檢查是否是「單次任務」超時（可以重試）
+				if err == context.DeadlineExceeded {
+					dm.timeoutCount.Add(1) // 記錄一次超時重試
+					fmt.Printf("🐢 工人 %d: 下載 [%s] 太慢 (超過 %v)\n", id, task.URL, taskTimeout)
+					// 繼續下一次迴圈進行重試
+					continue
+				}
+
+				// 3. 其他錯誤（如網路錯誤），這裡示範也視為失敗並記錄，或者可以選擇重試
+				fmt.Printf("❌ 工人 %d: 下載 [%s] 失敗: %v\n", id, task.URL, err)
+				// 根據需求，這裡可以 break 或 continue。這裡選擇不重試其他錯誤。
+				break
 			}
 
-			// 下載成功（網址已在 CheckAndMark 時標記）
-			dm.totalBytes.Add(uint64(bytes))
-			dm.successCount.Add(1)
-			fmt.Printf("✅ 工人 %d: 完成 [%s] (%d bytes)\n", id, task.URL, bytes)
+			if !success {
+				// 即使失敗（且不是全局退出），這裡選擇「繼續處理下一個任務」
+				fmt.Printf("⚠️  工人 %d: 放棄任務 [%s] (重試耗盡或錯誤)\n", id, task.URL)
+			}
 
 		case <-ctx.Done():
-			// Context 超時，工人退出
-			fmt.Printf("⏰ 工人 %d: 收到超時信號，停止工作\n", id)
+			// Context 超時或被取消，工人退出
+			// 顯示具體的原因
+			if ctx.Err() == context.DeadlineExceeded {
+				fmt.Printf("⏰ 工人 %d: 收到超時信號 (DeadlineExceeded)，停止工作\n", id)
+			} else if ctx.Err() == context.Canceled {
+				fmt.Printf("🚫 工人 %d: 收到取消信號 (Canceled)，停止工作\n", id)
+			} else {
+				fmt.Printf("⚠️  工人 %d: Context 結束 (%v)，停止工作\n", id, ctx.Err())
+			}
 			return
 		}
 	}
