@@ -1,68 +1,193 @@
 package routes
 
 import (
-	"context"
+	"net/http"
+	"os"
+
+	"golangAPI_construct/cache"
 	"golangAPI_construct/data"
 	"golangAPI_construct/handlers"
 	"golangAPI_construct/logging"
 	"golangAPI_construct/middleware"
+	"golangAPI_construct/security"
 	"golangAPI_construct/services"
-	"os"
 
-	"github.com/gin-gonic/gin"
+	"github.com/go-chi/chi/v5"
 )
 
-func SetupRoutes() *gin.Engine {
-	r := gin.New()
-	// set up global middleware
+// test git rebase.
+func SetupRoutes() http.Handler {
+	r := chi.NewRouter()
+
+	// 設置全局中間件
 	r.Use(
 		middleware.RequestID(),
-		middleware.ErrorHandler(),
+		middleware.ErrorHandler(), // 包含 panic recovery 和統一錯誤處理
 		middleware.Logger(),
-		middleware.CORS(), // Assuming CORS middleware is defined elsewhere
-		gin.Recovery(),
+		middleware.MetricsMiddleware(), // 添加 metrics 收集中間件
+		middleware.CORS(),
+		// middleware.Recoverer(), // 移除：與 ErrorHandler 重複
 	)
-	// 決定使用記憶體會資料庫實作
+
+	// 強制使用 GORM 數據庫模式（生產環境專用）
 	var bookService services.BookServiceInterface
-	if os.Getenv("USE_DB") == "true" {
-		db, err := data.Open()
-		if err != nil {
-			panic(err)
-		}
-		if err := data.Migrate(context.Background(), db); err != nil {
-			panic(err)
-		}
-		// link to the book_db.go
-		bookService = services.NewBookServiceDB(db)
-	} else {
-		// link to the book.go
-		bookService = services.NewBookService()
-		logging.Logger.Print("[BOOT] Book service: in-memory mode")
+
+	// 檢查必要的環境變數
+	if os.Getenv("USE_DB") != "true" || os.Getenv("USE_GORM") != "true" {
+		logging.Logger.Fatal("[BOOT] ERROR: This application requires database mode. Please set USE_DB=true and USE_GORM=true")
 	}
 
-	//bookService := services.NewBookService()
-	bookHandler := handlers.NewBookHandler(bookService)
+	// 初始化 GORM 數據庫連接
+	gormDB, err := data.OpenGORM()
+	if err != nil {
+		logging.Logger.Fatalf("[BOOT] Failed to connect to database: %v", err)
+	}
 
-	// 啟動時印出目前資料筆數，方便確認來源是否為 DB
-	//log.Printf("[BOOT] Books count at start: %d", bookService.GetBooksCount())
+	// 執行數據庫遷移
+	if err := data.MigrateGORM(gormDB); err != nil {
+		logging.Logger.Fatalf("[BOOT] Failed to migrate database: %v", err)
+	}
+
+	// 種子數據（可選）
+	if err := data.SeedGORM(gormDB); err != nil {
+		logging.Logger.Printf("[GORM] Warning: failed to seed database: %v", err)
+	}
+
+	// 創建索引（可選）
+	if err := data.CreateGORMIndexes(gormDB); err != nil {
+		logging.Logger.Printf("[GORM] Warning: failed to create indexes: %v", err)
+	}
+
+	// 創建 GORM 服務
+	bookService = services.NewBookServiceGORM(gormDB)
+	logging.Logger.Print("[BOOT] Book service: GORM database mode (production ready)")
+
+	// 初始化緩存服務
+	cacheService, err := cache.NewCacheService()
+	if err != nil {
+		logging.Logger.Printf("[CACHE] Failed to initialize cache service: %v", err)
+		// 繼續運行，但不使用緩存
+		cacheService = nil
+	} else {
+		logging.Logger.Print("[CACHE] Cache service initialized successfully")
+	}
+
+	userService := services.NewUserService(gormDB)
+	tokenStore := security.NewInMemoryTokenStore()
+	bookHandler := handlers.NewBookHandler(bookService)
+	metricsHandler := handlers.NewMetricsHandler()
+	authHandler := handlers.NewAuthHandler(userService, tokenStore)
+
+	// 創建 GORM 專用處理器（總是可用）
+	gormService, ok := bookService.(*services.BookServiceGORM)
+	if !ok {
+		logging.Logger.Fatal("[BOOT] ERROR: Expected GORM service but got different type")
+	}
+	gormHandler := handlers.NewGORMHandler(gormService)
+	userHandler := handlers.NewUserHandler(userService, gormService)
+
+	// 啟動時印出目前資料筆數
 	logging.Logger.Printf("[BOOT] Books count at start: %d", len(bookService.GetAllBooks()))
 
-	r.GET("/api/health", bookHandler.HealthCheck)
-	// v1 group with JWT middleware => verify token for all /api/v1/books routes
-	v1 := r.Group("/api/v1")
-	{
-		v1.POST("/login", handlers.Login)
+	// 健康檢查端點（不需要認證）
+	r.Get("/api/health", bookHandler.HealthCheck)
 
-		// Protected book routes
-		books := v1.Group("/books", middleware.JWTAuthMiddleware())
-		{
-			books.GET("", bookHandler.GetBooks)
-			books.POST("", bookHandler.CreateBook)
-			books.GET("/:id", bookHandler.GetBookByID)
-			books.PUT("/:id", bookHandler.UpdateBook)
-			books.PATCH("/:id", bookHandler.PatchBook)
-			books.DELETE("/:id", bookHandler.DeleteBook)
-		}
-	}
+	// Metrics 端點（不需要認證，用於監控）
+	// 這些端點提供應用程式的性能指標和健康狀態
+	r.Get("/metrics", metricsHandler.PrometheusMetrics)            // Prometheus 格式指標
+	r.Get("/api/metrics/health", metricsHandler.HealthMetrics)     // JSON 格式健康指標
+	r.Get("/api/metrics/detailed", metricsHandler.DetailedMetrics) // JSON 格式詳細指標
+
+	// API v1 路由組
+	r.Route("/api/v1", func(r chi.Router) {
+		// 認證相關路由（不需要 JWT 驗證）
+		r.Route("/auth", func(r chi.Router) {
+			r.Post("/signup", authHandler.SignUp)
+			r.Post("/login", authHandler.Login)
+			r.With(middleware.JWTAuthMiddleware(tokenStore)).Post("/logout", authHandler.Logout)
+			r.With(middleware.JWTAuthMiddleware(tokenStore)).Post("/refresh", authHandler.RefreshToken)
+		})
+
+		// 使用者查詢與收藏路由（需要 JWT 驗證）
+		r.Route("/users", func(r chi.Router) {
+			r.Use(middleware.JWTAuthMiddleware(tokenStore))
+			r.Get("/by-username", authHandler.GetUserByUsername)
+			r.Get("/{userID}/favorites", userHandler.GetUserFavorites)
+			r.Post("/{userID}/favorites", userHandler.AddUserFavorite)
+			r.Delete("/{userID}/favorites/{bookID}", userHandler.RemoveUserFavorite)
+			r.Get("/account/{username}/favorites", userHandler.GetUserFavoritesByUsername)
+		})
+
+		// 受保護的書籍路由（需要 JWT 驗證）
+		r.Route("/books", func(r chi.Router) {
+			// 所有書籍相關路由都需要 JWT 認證
+			r.Use(middleware.JWTAuthMiddleware(tokenStore))
+
+			r.Get("/{id}/users", userHandler.GetUsersByBook)
+
+			// 如果緩存服務可用，為 GET 路由添加緩存
+			if cacheService != nil {
+				// GET 路由：使用緩存提高性能
+				r.With(middleware.CacheMiddleware(cacheService, middleware.DefaultCacheConfig)).Get("/", bookHandler.GetBooks)
+				r.With(middleware.CacheMiddleware(cacheService, middleware.DefaultCacheConfig)).Get("/{id}", bookHandler.GetBookByID)
+
+				// 修改操作：添加緩存失效中間件
+				r.With(
+					middleware.CacheInvalidationMiddleware(cacheService, []string{"books"}),
+					middleware.RequestValidator(middleware.BookValidationRules),
+				).Post("/", bookHandler.CreateBook)
+
+				r.With(
+					middleware.CacheInvalidationMiddleware(cacheService, []string{"books"}),
+					middleware.RequestValidator(middleware.BookValidationRules),
+				).Put("/{id}", bookHandler.UpdateBook)
+
+				r.With(
+					middleware.CacheInvalidationMiddleware(cacheService, []string{"books"}),
+					middleware.RequestValidator(middleware.BookValidationRules),
+				).Patch("/{id}", bookHandler.PatchBook)
+
+				r.With(middleware.CacheInvalidationMiddleware(cacheService, []string{"books"})).Delete("/{id}", bookHandler.DeleteBook)
+			} else {
+				// 沒有緩存服務時的原始路由
+				r.Get("/", bookHandler.GetBooks)
+				r.Get("/{id}", bookHandler.GetBookByID)
+				r.With(middleware.RequestValidator(middleware.BookValidationRules)).Post("/", bookHandler.CreateBook)
+				r.With(middleware.RequestValidator(middleware.BookValidationRules)).Put("/{id}", bookHandler.UpdateBook)
+				r.With(middleware.RequestValidator(middleware.BookValidationRules)).Patch("/{id}", bookHandler.PatchBook)
+				r.Delete("/{id}", bookHandler.DeleteBook)
+			}
+		})
+
+		// GORM 專用路由（總是可用，需要認證）
+		r.Route("/gorm", func(r chi.Router) {
+			r.Use(middleware.JWTAuthMiddleware(tokenStore))
+
+			// 搜索和統計功能（增強版）
+			r.Get("/search", gormHandler.SearchBooks)                  // 增強版搜索，支持多條件篩選
+			r.Get("/search-advanced", gormHandler.SearchBooksAdvanced) // 高級搜索，支持複雜查詢
+			r.Get("/statistics", gormHandler.GetBookStatistics)
+			r.Get("/author-statistics", gormHandler.GetAuthorStatistics)
+			r.Get("/database-health", gormHandler.GetDatabaseHealth)
+
+			// 分類和篩選功能
+			r.Get("/category/{category}", gormHandler.GetBooksByCategory)
+			r.Get("/price-range", gormHandler.GetBooksByPriceRange)
+			r.Get("/published/{year}", gormHandler.GetBooksByPublishedYear)
+			r.Get("/top-rated", gormHandler.GetTopRatedBooks)
+			r.Get("/recent", gormHandler.GetRecentBooks)
+			r.Get("/with-reviews", gormHandler.GetBooksWithReviews)
+			r.Get("/books/{bookID}/users", userHandler.GetUsersByBook)
+
+			// 分頁和批量操作
+			r.Get("/paginated", gormHandler.GetBooksWithPagination)
+			r.Get("/by-authors", gormHandler.GetBooksByMultipleAuthors)
+
+			// 硬刪除功能（危險操作）
+			r.Delete("/books/{id}/permanent", gormHandler.DeleteBookPermanently) // 永久刪除書籍
+			r.Delete("/books/{id}/cascade", gormHandler.DeleteBookWithCascade)   // 級聯刪除書籍及相關記錄
+		})
+	})
+
 	return r
 }

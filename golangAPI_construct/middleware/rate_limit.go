@@ -9,8 +9,6 @@ import (
 	"time"
 
 	"golangAPI_construct/responses"
-
-	"github.com/gin-gonic/gin"
 )
 
 type bucket struct {
@@ -75,7 +73,7 @@ func (r *rateLimiter) allow(key string) bool {
 	return false
 }
 
-func RateLimit() gin.HandlerFunc {
+func RateLimit() func(http.Handler) http.Handler {
 	rps := 5.0
 	burst := 10.0
 	if v := os.Getenv("RATE_LIMIT_RPS"); v != "" {
@@ -89,19 +87,20 @@ func RateLimit() gin.HandlerFunc {
 		}
 	}
 	rl := newRateLimiter(rps, burst, 5*time.Minute)
-	return func(c *gin.Context) {
-		ip := clientIP(c)
-		if !rl.allow(ip) {
-			c.Error(responses.NewAppError(http.StatusTooManyRequests, "RATE_LIMIT", "too many requests"))
-			c.Abort()
-			return
-		}
-		c.Next()
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ip := clientIP(r)
+			if !rl.allow(ip) {
+				responses.Fail(w, r, responses.NewAppError(http.StatusTooManyRequests, "RATE_LIMIT", "too many requests"))
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
 	}
 }
 
-func clientIP(c *gin.Context) string {
-	if fwd := c.GetHeader("X-Forwarded-For"); fwd != "" {
+func clientIP(r *http.Request) string {
+	if fwd := r.Header.Get("X-Forwarded-For"); fwd != "" {
 		// 只取第一個
 		host := fwd
 		if idx := len(fwd); idx > 0 {
@@ -111,9 +110,9 @@ func clientIP(c *gin.Context) string {
 			return ip.String()
 		}
 	}
-	ip, _, err := net.SplitHostPort(c.Request.RemoteAddr)
+	ip, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
-		return c.Request.RemoteAddr
+		return r.RemoteAddr
 	}
 	return ip
 }
