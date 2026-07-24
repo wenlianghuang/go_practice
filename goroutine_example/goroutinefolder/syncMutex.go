@@ -17,8 +17,8 @@ func Syncmutex() {
 	for i := 0; i < 1000; i++ {
 		go func() {
 			total.mux.Lock()
+			defer total.mux.Unlock()
 			total.v++
-			total.mux.Unlock()
 			wg.Done()
 		}()
 
@@ -27,6 +27,6 @@ func Syncmutex() {
 	wg.Wait() // wait until all goroutines finish(wg counter to 0 Add and Done)
 	fmt.Printf("Final Value: %+v\n", total.v)
 	total.mux.Lock()
+	defer total.mux.Unlock()
 	fmt.Printf("V: %+v\n", total.v)
-	total.mux.Unlock()
 }

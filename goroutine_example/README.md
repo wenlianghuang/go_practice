@@ -156,7 +156,7 @@ goroutine_example/
 
 | 檔案 | 對應函式 | 說明 |
 |------|----------|------|
-| **signal-control-and-closing.go** | `SignalControlAndClosing` | **signal.NotifyContext**：監聽 SIGINT/SIGTERM（如 Ctrl+C），Context 被取消後 worker 的 `select` 收到 `ctx.Done()` 並結束，最後 `wg.Wait()` 優雅退出。 |
+| **signal-control-and-closing.go** | `SignalControlAndClosing` | **signal.NotifyContext**：監聽 /SIGTERM（如 Ctrl+C），Context 被取消後 worker 的 `select` 收到 `ctx.Done()` 並結束，最後 `wg.Wait()` 優雅退出。 |
 
 ### 十、Worker Pool
 
